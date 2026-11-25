@@ -1,0 +1,337 @@
+// Badplaner VR – Server-Grundgerüst
+// Läuft mit Node.js 22.13+ ohne zusätzliche Pakete (eingebautes SQLite, HTTP, Krypto).
+'use strict';
+const http = require('node:http');
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
+const { DatabaseSync } = require('node:sqlite');
+
+// ---------- Einstellungen (über Umgebungsvariablen) ----------
+const PORT = Number(process.env.PORT || 8080);
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
+const PUBLIC_DIR = path.join(__dirname, 'public');
+const COOKIE_SECURE = process.env.COOKIE_SECURE === '1'; // auf 1 setzen, sobald HTTPS läuft
+const SESSION_DAYS = 30;
+
+fs.mkdirSync(DATA_DIR, { recursive: true });
+const db = new DatabaseSync(path.join(DATA_DIR, 'badplaner.db'));
+db.exec(`
+PRAGMA journal_mode = WAL;
+PRAGMA foreign_keys = ON;
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  name TEXT NOT NULL,
+  pw_hash TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'berater' CHECK (role IN ('admin','berater')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS sessions (
+  token_hash TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS projects (
+  id INTEGER PRIMARY KEY,
+  customer_name TEXT NOT NULL,
+  address TEXT NOT NULL DEFAULT '',
+  phone TEXT NOT NULL DEFAULT '',
+  email TEXT NOT NULL DEFAULT '',
+  notes TEXT NOT NULL DEFAULT '',
+  wishes_json TEXT NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'neu' CHECK (status IN ('neu','in_planung','angebot','auftrag','abgeschlossen')),
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS variants (
+  id INTEGER PRIMARY KEY,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  plan_json TEXT NOT NULL DEFAULT '{}',
+  source TEXT NOT NULL DEFAULT 'manuell' CHECK (source IN ('manuell','ki')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_variants_project ON variants(project_id);
+`);
+
+// ---------- Passwörter & Sitzungen ----------
+function hashPassword(pw) {
+  const salt = crypto.randomBytes(16);
+  const hash = crypto.scryptSync(pw, salt, 64);
+  return `scrypt$${salt.toString('hex')}$${hash.toString('hex')}`;
+}
+function checkPassword(pw, stored) {
+  const [, saltHex, hashHex] = String(stored).split('$');
+  if (!saltHex || !hashHex) return false;
+  const hash = crypto.scryptSync(pw, Buffer.from(saltHex, 'hex'), 64);
+  const want = Buffer.from(hashHex, 'hex');
+  return want.length === hash.length && crypto.timingSafeEqual(hash, want);
+}
+const sha = s => crypto.createHash('sha256').update(s).digest('hex');
+
+// Erster Start: Admin aus Umgebungsvariablen anlegen
+if (db.prepare('SELECT COUNT(*) AS n FROM users').get().n === 0) {
+  const email = process.env.ADMIN_EMAIL, pw = process.env.ADMIN_PASSWORD;
+  if (email && pw && pw.length >= 10) {
+    db.prepare('INSERT INTO users (email, name, pw_hash, role) VALUES (?, ?, ?, ?)')
+      .run(email, process.env.ADMIN_NAME || 'Admin', hashPassword(pw), 'admin');
+    console.log(`Admin-Konto angelegt: ${email}`);
+  } else {
+    console.warn('Noch kein Benutzer vorhanden. Bitte ADMIN_EMAIL und ADMIN_PASSWORD (mind. 10 Zeichen) setzen und neu starten.');
+  }
+}
+
+function createSession(userId) {
+  const token = crypto.randomBytes(32).toString('base64url');
+  db.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)')
+    .run(sha(token), userId, Date.now() + SESSION_DAYS * 864e5);
+  return token;
+}
+function sessionUser(req) {
+  const m = /(?:^|;\s*)sid=([^;]+)/.exec(req.headers.cookie || '');
+  if (!m) return null;
+  const row = db.prepare(`SELECT u.id, u.email, u.name, u.role, s.expires_at FROM sessions s
+    JOIN users u ON u.id = s.user_id WHERE s.token_hash = ?`).get(sha(m[1]));
+  if (!row || row.expires_at < Date.now()) return null;
+  return { id: row.id, email: row.email, name: row.name, role: row.role, tokenHash: sha(m[1]) };
+}
+function cookie(token, maxAge) {
+  return `sid=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${COOKIE_SECURE ? '; Secure' : ''}`;
+}
+setInterval(() => db.prepare('DELETE FROM sessions WHERE expires_at < ?').run(Date.now()), 36e5).unref();
+
+// Einfacher Schutz gegen Passwort-Raten: max. 8 Versuche pro 10 Minuten und IP
+const attempts = new Map();
+function tooMany(ip) {
+  const now = Date.now(), list = (attempts.get(ip) || []).filter(t => now - t < 6e5);
+  attempts.set(ip, list);
+  return list.length >= 8;
+}
+
+// ---------- Hilfsfunktionen ----------
+class HttpError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
+function send(res, status, data, headers = {}) {
+  const body = data === undefined ? '' : JSON.stringify(data);
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers });
+  res.end(body);
+}
+function readJson(req, limit = 2e6) {
+  return new Promise((resolve, reject) => {
+    let size = 0; const chunks = [];
+    req.on('data', c => { size += c.length; if (size > limit) { reject(new HttpError(413, 'Daten zu groß')); req.destroy(); } else chunks.push(c); });
+    req.on('end', () => {
+      if (!chunks.length) return resolve({});
+      try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); } catch { reject(new HttpError(400, 'Ungültiges JSON')); }
+    });
+    req.on('error', reject);
+  });
+}
+const str = (v, max = 500) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+const STATUS = ['neu', 'in_planung', 'angebot', 'auftrag', 'abgeschlossen'];
+function needUser(u) { if (!u) throw new HttpError(401, 'Bitte anmelden'); return u; }
+function needAdmin(u) { needUser(u); if (u.role !== 'admin') throw new HttpError(403, 'Nur für Admins'); return u; }
+function getProject(id) {
+  const p = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
+  if (!p) throw new HttpError(404, 'Projekt nicht gefunden');
+  return p;
+}
+function projectOut(p) {
+  const { wishes_json, ...rest } = p;
+  return { ...rest, wishes: JSON.parse(wishes_json || '{}') };
+}
+function variantOut(v, withPlan) {
+  const { plan_json, ...rest } = v;
+  return withPlan ? { ...rest, plan: JSON.parse(plan_json || '{}') } : rest;
+}
+
+// ---------- API-Routen ----------
+const routes = [];
+const route = (method, pattern, fn) => routes.push({ method, re: new RegExp('^' + pattern.replace(/:(\w+)/g, '(?<$1>\\d+)') + '$'), fn });
+
+route('GET', '/api/health', () => ({ ok: true }));
+
+route('POST', '/api/login', async (req, res) => {
+  const ip = req.socket.remoteAddress || '';
+  if (tooMany(ip)) throw new HttpError(429, 'Zu viele Versuche. Bitte in 10 Minuten erneut probieren.');
+  const { email, password } = await readJson(req);
+  const u = db.prepare('SELECT * FROM users WHERE email = ?').get(str(email, 200));
+  if (!u || !checkPassword(String(password || ''), u.pw_hash)) {
+    attempts.get(ip).push(Date.now());
+    throw new HttpError(401, 'E-Mail oder Passwort falsch');
+  }
+  const token = createSession(u.id);
+  send(res, 200, { id: u.id, email: u.email, name: u.name, role: u.role }, { 'Set-Cookie': cookie(token, SESSION_DAYS * 86400) });
+});
+route('POST', '/api/logout', (req, res, u) => {
+  if (u) db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(u.tokenHash);
+  send(res, 200, { ok: true }, { 'Set-Cookie': cookie('', 0) });
+});
+route('GET', '/api/me', (req, res, u) => { needUser(u); const { tokenHash, ...me } = u; return me; });
+route('POST', '/api/me/password', async (req, res, u) => {
+  needUser(u);
+  const { current, next } = await readJson(req);
+  const row = db.prepare('SELECT pw_hash FROM users WHERE id = ?').get(u.id);
+  if (!checkPassword(String(current || ''), row.pw_hash)) throw new HttpError(400, 'Aktuelles Passwort falsch');
+  if (String(next || '').length < 10) throw new HttpError(400, 'Neues Passwort: mindestens 10 Zeichen');
+  db.prepare('UPDATE users SET pw_hash = ? WHERE id = ?').run(hashPassword(next), u.id);
+  db.prepare('DELETE FROM sessions WHERE user_id = ? AND token_hash <> ?').run(u.id, u.tokenHash);
+  return { ok: true };
+});
+
+// Team (nur Admin)
+route('GET', '/api/users', (req, res, u) => { needAdmin(u); return db.prepare('SELECT id, email, name, role, created_at FROM users ORDER BY name').all(); });
+route('POST', '/api/users', async (req, res, u) => {
+  needAdmin(u);
+  const b = await readJson(req), email = str(b.email, 200), name = str(b.name, 100), pw = String(b.password || '');
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new HttpError(400, 'Ungültige E-Mail');
+  if (!name) throw new HttpError(400, 'Name fehlt');
+  if (pw.length < 10) throw new HttpError(400, 'Passwort: mindestens 10 Zeichen');
+  const role = b.role === 'admin' ? 'admin' : 'berater';
+  try {
+    const r = db.prepare('INSERT INTO users (email, name, pw_hash, role) VALUES (?, ?, ?, ?)').run(email, name, hashPassword(pw), role);
+    return { id: Number(r.lastInsertRowid), email, name, role };
+  } catch { throw new HttpError(409, 'E-Mail ist schon vergeben'); }
+});
+route('DELETE', '/api/users/:id', (req, res, u, p) => {
+  needAdmin(u);
+  if (Number(p.id) === u.id) throw new HttpError(400, 'Du kannst dich nicht selbst löschen');
+  db.prepare('DELETE FROM users WHERE id = ?').run(Number(p.id));
+  return { ok: true };
+});
+
+// Kundenprojekte
+route('GET', '/api/projects', (req, res, u) => {
+  needUser(u);
+  return db.prepare(`SELECT p.id, p.customer_name, p.address, p.status, p.updated_at,
+      (SELECT COUNT(*) FROM variants v WHERE v.project_id = p.id) AS variant_count
+    FROM projects p ORDER BY p.updated_at DESC`).all();
+});
+route('POST', '/api/projects', async (req, res, u) => {
+  needUser(u);
+  const b = await readJson(req), name = str(b.customer_name, 200);
+  if (!name) throw new HttpError(400, 'Kundenname fehlt');
+  const r = db.prepare(`INSERT INTO projects (customer_name, address, phone, email, notes, created_by) VALUES (?, ?, ?, ?, ?, ?)`)
+    .run(name, str(b.address), str(b.phone, 60), str(b.email, 200), str(b.notes, 5000), u.id);
+  const id = Number(r.lastInsertRowid);
+  db.prepare('INSERT INTO variants (project_id, name) VALUES (?, ?)').run(id, 'Variante 1');
+  return projectOut(getProject(id));
+});
+route('GET', '/api/projects/:id', (req, res, u, p) => {
+  needUser(u);
+  const proj = projectOut(getProject(Number(p.id)));
+  proj.variants = db.prepare('SELECT * FROM variants WHERE project_id = ? ORDER BY id').all(proj.id).map(v => variantOut(v, false));
+  return proj;
+});
+route('PUT', '/api/projects/:id', async (req, res, u, p) => {
+  needUser(u);
+  const cur = getProject(Number(p.id)), b = await readJson(req);
+  const next = {
+    customer_name: 'customer_name' in b ? str(b.customer_name, 200) || cur.customer_name : cur.customer_name,
+    address: 'address' in b ? str(b.address) : cur.address,
+    phone: 'phone' in b ? str(b.phone, 60) : cur.phone,
+    email: 'email' in b ? str(b.email, 200) : cur.email,
+    notes: 'notes' in b ? str(b.notes, 5000) : cur.notes,
+    status: STATUS.includes(b.status) ? b.status : cur.status,
+    wishes_json: b.wishes && typeof b.wishes === 'object' ? JSON.stringify(b.wishes) : cur.wishes_json,
+  };
+  db.prepare(`UPDATE projects SET customer_name=?, address=?, phone=?, email=?, notes=?, status=?, wishes_json=?, updated_at=datetime('now') WHERE id=?`)
+    .run(next.customer_name, next.address, next.phone, next.email, next.notes, next.status, next.wishes_json, cur.id);
+  return projectOut(getProject(cur.id));
+});
+route('DELETE', '/api/projects/:id', (req, res, u, p) => {
+  needUser(u); getProject(Number(p.id));
+  db.prepare('DELETE FROM projects WHERE id = ?').run(Number(p.id));
+  return { ok: true };
+});
+
+// Varianten (Planungsstände)
+function getVariant(id) {
+  const v = db.prepare('SELECT * FROM variants WHERE id = ?').get(id);
+  if (!v) throw new HttpError(404, 'Variante nicht gefunden');
+  return v;
+}
+function touch(projectId) { db.prepare(`UPDATE projects SET updated_at = datetime('now') WHERE id = ?`).run(projectId); }
+route('POST', '/api/projects/:id/variants', async (req, res, u, p) => {
+  needUser(u);
+  const proj = getProject(Number(p.id)), b = await readJson(req);
+  let plan = b.plan && typeof b.plan === 'object' ? b.plan : {};
+  if (b.copy_from) plan = JSON.parse(getVariant(Number(b.copy_from)).plan_json);
+  const n = db.prepare('SELECT COUNT(*) AS n FROM variants WHERE project_id = ?').get(proj.id).n;
+  const r = db.prepare('INSERT INTO variants (project_id, name, plan_json) VALUES (?, ?, ?)')
+    .run(proj.id, str(b.name, 100) || `Variante ${n + 1}`, JSON.stringify(plan));
+  touch(proj.id);
+  return variantOut(getVariant(Number(r.lastInsertRowid)), false);
+});
+route('GET', '/api/variants/:id', (req, res, u, p) => {
+  needUser(u);
+  const v = getVariant(Number(p.id)), proj = getProject(v.project_id);
+  return { ...variantOut(v, true), customer_name: proj.customer_name };
+});
+route('PUT', '/api/variants/:id', async (req, res, u, p) => {
+  needUser(u);
+  const v = getVariant(Number(p.id)), b = await readJson(req);
+  const name = 'name' in b ? str(b.name, 100) || v.name : v.name;
+  const plan = b.plan && typeof b.plan === 'object' ? JSON.stringify(b.plan) : v.plan_json;
+  db.prepare(`UPDATE variants SET name=?, plan_json=?, updated_at=datetime('now') WHERE id=?`).run(name, plan, v.id);
+  touch(v.project_id);
+  return variantOut(getVariant(v.id), false);
+});
+route('DELETE', '/api/variants/:id', (req, res, u, p) => {
+  needUser(u);
+  const v = getVariant(Number(p.id));
+  if (db.prepare('SELECT COUNT(*) AS n FROM variants WHERE project_id = ?').get(v.project_id).n <= 1) throw new HttpError(400, 'Die letzte Variante kann nicht gelöscht werden');
+  db.prepare('DELETE FROM variants WHERE id = ?').run(v.id);
+  touch(v.project_id);
+  return { ok: true };
+});
+
+// Platzhalter für Schritt 3 und 4: KI-Planung und KI-Bilder
+route('POST', '/api/ai/design', (req, res, u) => { needUser(u); throw new HttpError(501, 'KI-Planung folgt in Schritt 3'); });
+route('POST', '/api/ai/render', (req, res, u) => { needUser(u); throw new HttpError(501, 'KI-Bilder folgen in Schritt 4'); });
+
+// ---------- Statische Dateien ----------
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.glb': 'model/gltf-binary', '.ico': 'image/x-icon' };
+function serveStatic(req, res) {
+  let rel = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  if (rel === '/') rel = '/index.html';
+  const file = path.normalize(path.join(PUBLIC_DIR, rel));
+  if (!file.startsWith(PUBLIC_DIR + path.sep)) { res.writeHead(403); return res.end(); }
+  fs.stat(file, (err, st) => {
+    if (err || !st.isFile()) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Nicht gefunden'); }
+    res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
+    fs.createReadStream(file).pipe(res);
+  });
+}
+
+// ---------- Server ----------
+const server = http.createServer(async (req, res) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'same-origin');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Permissions-Policy', 'xr-spatial-tracking=(self)');
+  const url = new URL(req.url, 'http://x');
+  if (!url.pathname.startsWith('/api/')) {
+    if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
+    return serveStatic(req, res);
+  }
+  // Schutz gegen fremde Webseiten (CSRF): schreibende Anfragen nur als JSON
+  if (req.method !== 'GET' && !(req.headers['content-type'] || '').startsWith('application/json')) return send(res, 415, { error: 'Bitte JSON senden' });
+  for (const r of routes) {
+    const m = r.method === req.method && r.re.exec(url.pathname);
+    if (!m) continue;
+    try {
+      const out = await r.fn(req, res, sessionUser(req), m.groups || {});
+      if (!res.headersSent) send(res, 200, out);
+    } catch (e) {
+      if (!(e instanceof HttpError)) console.error(e);
+      if (!res.headersSent) send(res, e.status || 500, { error: e instanceof HttpError ? e.message : 'Serverfehler' });
+    }
+    return;
+  }
+  send(res, 404, { error: 'Unbekannte Adresse' });
+});
+server.listen(PORT, () => console.log(`Badplaner läuft auf http://localhost:${PORT}`));

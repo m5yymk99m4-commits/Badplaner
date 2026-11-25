@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f5c63">
+<title>Badplaner VR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:light dark;--bg:light-dark(#f7f7f4,#0e1515);--panel:light-dark(#fff,#152020);--ink:light-dark(#13201f,#e9efed);--mute:light-dark(#5b6a68,#9db0ad);--line:light-dark(#dde3e0,#263533);--pet:light-dark(#0f5c63,#4fb3ba);--petbg:light-dark(#e3eff0,#173236);--brass:#b8832a;--bad:#b3412e}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,system-ui,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 16px) max(16px,env(safe-area-inset-right,0px)) 48px max(16px,env(safe-area-inset-left,0px))}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}
+.brand{font:800 18px Archivo,sans-serif;text-decoration:none;color:var(--ink)}.brand b{color:var(--pet)}
+nav{display:flex;gap:6px;flex-wrap:wrap}
+nav a{color:var(--ink);text-decoration:none;font-weight:600;font-size:14px;padding:8px 10px;border-radius:9px}
+nav a.on{background:var(--petbg);color:var(--pet)}
+h1{font:800 clamp(28px,6vw,38px)/1.05 Archivo,sans-serif;letter-spacing:-.02em;margin:6px 0 14px}
+h2{font:700 18px Archivo,sans-serif;margin:26px 0 10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+label{display:block;font-weight:600;font-size:14px;margin:12px 0 5px}
+input,textarea,select{width:100%;font:16px Inter,sans-serif;padding:11px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink)}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--pet);outline-offset:1px;border-color:var(--pet)}
+textarea{min-height:90px;resize:vertical}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;background:var(--pet);color:#fff;font:600 15px Inter,sans-serif;padding:12px 16px;border-radius:10px;cursor:pointer;min-height:46px;text-decoration:none}
+.btn.ghost{background:var(--petbg);color:var(--pet)}
+.btn.line{background:none;border:1.5px solid var(--line);color:var(--ink)}
+.btn.warn{background:none;border:1.5px solid currentColor;color:var(--bad)}
+.btn:disabled{opacity:.5;cursor:default}
+.acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.err{color:var(--bad);font-weight:600;min-height:1.4em;margin:10px 0 0;font-size:14px}
+.ok{color:var(--pet);font-weight:600;font-size:14px;margin:10px 0 0}
+.search{display:flex;gap:8px;margin-bottom:12px}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.filters button{border:1.5px solid var(--line);background:var(--panel);color:var(--ink);font:500 14px Inter,sans-serif;padding:7px 12px;border-radius:20px;cursor:pointer;min-height:38px}
+.filters button.on{border-color:var(--pet);background:var(--petbg);color:var(--pet);font-weight:600}
+.list{display:grid;gap:10px}
+.item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;text-decoration:none;color:var(--ink)}
+.item b{font-size:17px}
+.item small{color:var(--mute);font-size:14px;grid-column:1}
+.pill{font-size:12.5px;font-weight:600;padding:3px 9px;border-radius:20px;background:var(--petbg);color:var(--pet);white-space:nowrap;grid-row:1/3;grid-column:2}
+.pill.angebot{background:#f6ead3;color:#7a5414}.pill.auftrag{background:#dff2e2;color:#1e6b33}.pill.abgeschlossen{background:var(--line);color:var(--mute)}
+.empty{text-align:center;padding:40px 16px;color:var(--mute)}
+.var{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
+.var:last-child{border-bottom:0}
+.var b{font-size:16px}.var small{display:block;color:var(--mute);font-size:13px}
+.var .acts{margin:0}
+.var .btn{min-height:40px;padding:8px 12px;font-size:14px}
+.tag{font-size:12px;font-weight:700;color:var(--brass);margin-left:6px}
+.note{margin-top:14px;padding:12px 14px;border-left:3px solid var(--brass);background:var(--petbg);border-radius:0 10px 10px 0;font-size:14px}
+.login{max-width:400px;margin:10vh auto 0}
+.login h1{margin-bottom:6px}
+.muted{color:var(--mute)}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><p class="muted">Lädt …</p></div>
+<script>
+{
+const app=document.getElementById('app');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const STATUS={neu:'Neu',in_planung:'In Planung',angebot:'Angebot',auftrag:'Auftrag',abgeschlossen:'Abgeschlossen'};
+const fmt=d=>{try{return new Date(d.replace(' ','T')+'Z').toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}catch(e){return d}};
+let me=null,filter='alle',query='';
+async function api(path,method='GET',body){
+  const r=await fetch(path,{method,headers:body!==undefined||method!=='GET'?{'Content-Type':'application/json'}:{},body:body!==undefined?JSON.stringify(body):method!=='GET'?'{}':undefined,credentials:'same-origin'});
+  const data=await r.json().catch(()=>({}));
+  if(r.status===401&&path!=='/api/login'){me=null;showLogin();throw new Error('abgemeldet')}
+  if(!r.ok)throw new Error(data.error||'Fehler '+r.status);
+  return data}
+function shell(active,inner){
+  app.innerHTML=`<header><a class="brand" href="#/">Badplaner <b>VR</b></a><nav>
+    <a href="#/" class="${active==='p'?'on':''}">Projekte</a>${me.role==='admin'?`<a href="#/team" class="${active==='t'?'on':''}">Team</a>`:''}<a href="#/konto" class="${active==='k'?'on':''}">Konto</a></nav></header>${inner}`}
+function showLogin(){
+  app.innerHTML=`<div class="login"><div class="brand">Badplaner <b>VR</b></div><h1>Anmelden</h1><p class="muted">Nur für Mitarbeiter.</p>
+  <form class="card" id="f"><label for="em">E-Mail</label><input id="em" type="email" autocomplete="username" required>
+  <label for="pw">Passwort</label><input id="pw" type="password" autocomplete="current-password" required>
+  <div class="acts"><button class="btn" style="width:100%">Anmelden</button></div><p class="err" id="err"></p></form></div>`;
+  document.getElementById('f').onsubmit=async e=>{e.preventDefault();try{me=await api('/api/login','POST',{email:em.value,password:pw.value});route()}catch(x){err.textContent=x.message}}}
+
+async function viewProjects(){
+  shell('p',`<h1>Kundenprojekte</h1><div class="search"><input id="q" type="search" placeholder="Kunde oder Adresse suchen" value="${esc(query)}"><a class="btn" href="#/neu">+ Neu</a></div>
+    <div class="filters" id="fl">${['alle',...Object.keys(STATUS)].map(s=>`<button data-s="${s}" class="${filter===s?'on':''}">${s==='alle'?'Alle':STATUS[s]}</button>`).join('')}</div><div class="list" id="ls"><p class="muted">Lädt …</p></div>`);
+  const all=await api('/api/projects');
+  const draw=()=>{const q=query.toLowerCase(),rows=all.filter(p=>(filter==='alle'||p.status===filter)&&(p.customer_name+' '+p.address).toLowerCase().includes(q));
+    ls.innerHTML=rows.length?rows.map(p=>`<a class="item" href="#/projekt/${p.id}"><b>${esc(p.customer_name)}</b><span class="pill ${p.status}">${STATUS[p.status]}</span><small>${esc(p.address||'Keine Adresse')} · ${p.variant_count} Variante${p.variant_count===1?'':'n'} · ${fmt(p.updated_at)}</small></a>`).join('')
+      :`<div class="empty">${all.length?'Keine Treffer.':'Noch keine Projekte. Legen Sie das erste Kundenprojekt an.'}</div>`};
+  draw();q.oninput=()=>{query=q.value;draw()};
+  fl.onclick=e=>{const b=e.target.closest('button');if(!b)return;filter=b.dataset.s;fl.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));draw()}}
+
+const custForm=(p={})=>`<div class="grid2"><div><label for="cn">Name *</label><input id="cn" required value="${esc(p.customer_name)}"></div><div><label for="ad">Adresse</label><input id="ad" value="${esc(p.address)}" autocomplete="street-address"></div>
+  <div><label for="ph">Telefon</label><input id="ph" type="tel" value="${esc(p.phone)}"></div><div><label for="ml">E-Mail</label><input id="ml" type="email" value="${esc(p.email)}"></div></div>
+  <label for="nt">Notizen</label><textarea id="nt" placeholder="z. B. Bad im OG, Fenster bleibt, Kunde möchte bodengleiche Dusche">${esc(p.notes)}</textarea>`;
+const custData=()=>({customer_name:cn.value,address:ad.value,phone:ph.value,email:ml.value,notes:nt.value});
+function viewNew(){
+  shell('p',`<h1>Neues Projekt</h1><form class="card" id="f">${custForm()}<div class="acts"><button class="btn">Projekt anlegen</button><a class="btn line" href="#/">Abbrechen</a></div><p class="err" id="err"></p></form>`);
+  f.onsubmit=async e=>{e.preventDefault();try{const p=await api('/api/projects','POST',custData());location.hash='#/projekt/'+p.id}catch(x){err.textContent=x.message}}}
+
+async function viewProject(id){
+  const p=await api('/api/projects/'+id);
+  shell('p',`<p style="margin:0"><a href="#/" class="muted">← Alle Projekte</a></p><h1>${esc(p.customer_name)}</h1>
+    <label for="st">Status</label><select id="st">${Object.entries(STATUS).map(([k,v])=>`<option value="${k}" ${p.status===k?'selected':''}>${v}</option>`).join('')}</select>
+    <h2>Planungen</h2><div class="card" id="vs">${p.variants.map(v=>`<div class="var"><div><b>${esc(v.name)}</b>${v.source==='ki'?'<span class="tag">KI</span>':''}<small>Geändert ${fmt(v.updated_at)}</small></div>
+      <div class="acts"><a class="btn" href="planner.html?variant=${v.id}">Planen</a><button class="btn ghost" data-copy="${v.id}">Kopieren</button><button class="btn line" data-ren="${v.id}" data-name="${esc(v.name)}">Umbenennen</button>${p.variants.length>1?`<button class="btn warn" data-del="${v.id}">Löschen</button>`:''}</div></div>`).join('')}
+      <div class="acts"><button class="btn ghost" id="nv">+ Leere Variante</button><button class="btn line" disabled title="Kommt in Schritt 3">✦ KI-Entwurf (bald)</button></div><p class="err" id="verr"></p></div>
+    <h2>Kundendaten</h2><form class="card" id="f">${custForm(p)}<div class="acts"><button class="btn">Speichern</button></div><p class="err" id="err"></p></form>
+    <div class="acts"><button class="btn warn" id="dp">Projekt löschen</button></div>`);
+  st.onchange=()=>api('/api/projects/'+id,'PUT',{status:st.value});
+  f.onsubmit=async e=>{e.preventDefault();try{await api('/api/projects/'+id,'PUT',custData());err.className='ok';err.textContent='Gespeichert ✓'}catch(x){err.className='err';err.textContent=x.message}};
+  nv.onclick=async()=>{await api(`/api/projects/${id}/variants`,'POST',{});viewProject(id)};
+  vs.onclick=async e=>{const b=e.target.closest('button');if(!b)return;try{
+    if(b.dataset.copy){await api(`/api/projects/${id}/variants`,'POST',{copy_from:+b.dataset.copy});viewProject(id)}
+    if(b.dataset.ren){const row=b.closest('.var'),cur=b.dataset.name;row.innerHTML=`<input value="${esc(cur)}" style="flex:1;min-width:160px" aria-label="Neuer Name"><div class="acts"><button class="btn" data-save="${b.dataset.ren}">OK</button></div>`;row.querySelector('input').focus()}
+    if(b.dataset.save){await api('/api/variants/'+b.dataset.save,'PUT',{name:b.closest('.var').querySelector('input').value});viewProject(id)}
+    if(b.dataset.del){if(b.dataset.sure){await api('/api/variants/'+b.dataset.del,'DELETE');viewProject(id)}else{b.dataset.sure=1;b.textContent='Wirklich löschen?'}}
+  }catch(x){verr.textContent=x.message}};
+  dp.onclick=async()=>{if(!dp.dataset.sure){dp.dataset.sure=1;dp.textContent='Wirklich das ganze Projekt löschen?';return}await api('/api/projects/'+id,'DELETE');location.hash='#/'}}
+
+async function viewTeam(){
+  const users=await api('/api/users');
+  shell('t',`<h1>Team</h1><div class="card">${users.map(u=>`<div class="var"><div><b>${esc(u.name)}</b><small>${esc(u.email)} · ${u.role==='admin'?'Admin':'Berater'}</small></div>${u.id!==me.id?`<div class="acts"><button class="btn warn" data-del="${u.id}">Entfernen</button></div>`:''}</div>`).join('')}</div>
+    <h2>Mitarbeiter hinzufügen</h2><form class="card" id="f"><div class="grid2"><div><label for="un">Name</label><input id="un" required></div><div><label for="ue">E-Mail</label><input id="ue" type="email" required></div>
+    <div><label for="up">Startpasswort (mind. 10 Zeichen)</label><input id="up" type="text" minlength="10" required></div><div><label for="ur">Rolle</label><select id="ur"><option value="berater">Berater</option><option value="admin">Admin</option></select></div></div>
+    <div class="acts"><button class="btn">Hinzufügen</button></div><p class="err" id="err"></p></form>`);
+  f.onsubmit=async e=>{e.preventDefault();try{await api('/api/users','POST',{name:un.value,email:ue.value,password:up.value,role:ur.value});viewTeam()}catch(x){err.textContent=x.message}};
+  app.querySelector('.card').onclick=async e=>{const b=e.target.closest('[data-del]');if(!b)return;if(!b.dataset.sure){b.dataset.sure=1;b.textContent='Wirklich?';return}await api('/api/users/'+b.dataset.del,'DELETE');viewTeam()}}
+
+function viewAccount(){
+  shell('k',`<h1>Konto</h1><p>${esc(me.name)} · ${esc(me.email)}</p><h2>Passwort ändern</h2><form class="card" id="f"><label for="c1">Aktuelles Passwort</label><input id="c1" type="password" autocomplete="current-password" required>
+    <label for="c2">Neues Passwort (mind. 10 Zeichen)</label><input id="c2" type="password" autocomplete="new-password" minlength="10" required><div class="acts"><button class="btn">Ändern</button></div><p class="err" id="err"></p></form>
+    <div class="acts"><button class="btn line" id="lo">Abmelden</button></div>`);
+  f.onsubmit=async e=>{e.preventDefault();try{await api('/api/me/password','POST',{current:c1.value,next:c2.value});err.className='ok';err.textContent='Passwort geändert ✓';f.reset()}catch(x){err.className='err';err.textContent=x.message}};
+  lo.onclick=async()=>{await api('/api/logout','POST');me=null;showLogin()}}
+
+async function route(){
+  if(!me){try{me=await api('/api/me')}catch(e){return showLogin()}}
+  const h=location.hash.slice(1)||'/',m=h.match(/^\/projekt\/(\d+)$/);
+  try{if(m)await viewProject(+m[1]);else if(h==='/neu')viewNew();else if(h==='/team'&&me.role==='admin')await viewTeam();else if(h==='/konto')viewAccount();else await viewProjects()}
+  catch(e){if(me)shell('p',`<p class="err">${esc(e.message)}</p><a class="btn line" href="#/">Zur Übersicht</a>`)}}
+addEventListener('hashchange',route);route();
+}
+</script>
+</body>
+</html>
