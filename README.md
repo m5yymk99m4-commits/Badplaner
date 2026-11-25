@@ -50,6 +50,15 @@ Wichtig für den Echtbetrieb:
 - **Server in der EU** wählen – es werden Kundendaten gespeichert (DSGVO).
 - **Backups:** Der Ordner `data` enthält alle Kundendaten. Regelmäßig sichern.
 
+## Betrieb auf dem Hetzner-Server
+
+Der Server wird beim Anlegen per Startskript (Cloud config) eingerichtet: Docker, Firewall,
+App und Caddy für HTTPS. Danach:
+
+- **Adresse:** `https://<IP-mit-Bindestrichen>.sslip.io` – steht auf dem Server in `/root/ADRESSE.txt`
+- **Update einspielen:** in der Hetzner-Konsole `badplaner-update` eingeben
+- **Daten:** liegen im Docker-Volume `badplaner_daten`; Hetzner-Backups sichern den ganzen Server
+
 ## Fahrplan
 
 1. ✅ Grundgerüst: Login, Team, Kundenprojekte, Varianten, Planer speichert auf dem Server
