@@ -76,10 +76,12 @@ function shell(active,inner){
     <a href="#/" class="${active==='p'?'on':''}">Projekte</a>${me.role==='admin'?`<a href="#/team" class="${active==='t'?'on':''}">Team</a>`:''}<a href="#/konto" class="${active==='k'?'on':''}">Konto</a></nav></header>${inner}`}
 function showLogin(){
   app.innerHTML=`<div class="login"><div class="brand">Badplaner <b>VR</b></div><h1>Anmelden</h1><p class="muted">Nur für Mitarbeiter.</p>
-  <form class="card" id="f"><label for="em">E-Mail</label><input id="em" type="email" autocomplete="username" required>
-  <label for="pw">Passwort</label><input id="pw" type="password" autocomplete="current-password" required>
+  <form class="card" id="f"><label for="em">E-Mail</label><input id="em" type="email" autocomplete="username" autocapitalize="off" required>
+  <label for="pw">Passwort</label><input id="pw" type="password" autocomplete="current-password" autocapitalize="off" spellcheck="false" required>
+  <label style="display:flex;gap:8px;align-items:center;font-weight:500"><input type="checkbox" id="shp" style="width:auto"> Passwort anzeigen</label>
   <div class="acts"><button class="btn" style="width:100%">Anmelden</button></div><p class="err" id="err"></p></form></div>`;
-  document.getElementById('f').onsubmit=async e=>{e.preventDefault();try{me=await api('/api/login','POST',{email:em.value,password:pw.value});route()}catch(x){err.textContent=x.message}}}
+  shp.onchange=()=>{pw.type=shp.checked?'text':'password'};
+  document.getElementById('f').onsubmit=async e=>{e.preventDefault();try{me=await api('/api/login','POST',{email:em.value.trim(),password:pw.value});route()}catch(x){err.textContent=x.message}}}
 
 async function viewProjects(){
   shell('p',`<h1>Kundenprojekte</h1><div class="search"><input id="q" type="search" placeholder="Kunde oder Adresse suchen" value="${esc(query)}"><a class="btn" href="#/neu">+ Neu</a></div>
@@ -129,10 +131,17 @@ async function viewTeam(){
   app.querySelector('.card').onclick=async e=>{const b=e.target.closest('[data-del]');if(!b)return;if(!b.dataset.sure){b.dataset.sure=1;b.textContent='Wirklich?';return}await api('/api/users/'+b.dataset.del,'DELETE');viewTeam()}}
 
 function viewAccount(){
-  shell('k',`<h1>Konto</h1><p>${esc(me.name)} · ${esc(me.email)}</p><h2>Passwort ändern</h2><form class="card" id="f"><label for="c1">Aktuelles Passwort</label><input id="c1" type="password" autocomplete="current-password" required>
-    <label for="c2">Neues Passwort (mind. 10 Zeichen)</label><input id="c2" type="password" autocomplete="new-password" minlength="10" required><div class="acts"><button class="btn">Ändern</button></div><p class="err" id="err"></p></form>
+  shell('k',`<h1>Konto</h1><p>${esc(me.name)} · ${esc(me.email)}</p><h2>Passwort ändern</h2><form class="card" id="f"><label for="c1">Aktuelles Passwort</label><input id="c1" type="password" autocomplete="current-password" autocapitalize="off" spellcheck="false" required>
+    <label for="c2">Neues Passwort (mind. 10 Zeichen)</label><input id="c2" type="password" autocomplete="new-password" autocapitalize="off" spellcheck="false" minlength="10" required>
+    <label for="c3">Neues Passwort wiederholen</label><input id="c3" type="password" autocomplete="new-password" autocapitalize="off" spellcheck="false" minlength="10" required>
+    <label style="display:flex;gap:8px;align-items:center;font-weight:500"><input type="checkbox" id="sh" style="width:auto"> Passwörter anzeigen</label>
+    <div class="acts"><button class="btn">Ändern</button></div><p class="err" id="err"></p></form>
     <div class="acts"><button class="btn line" id="lo">Abmelden</button></div>`);
-  f.onsubmit=async e=>{e.preventDefault();try{await api('/api/me/password','POST',{current:c1.value,next:c2.value});err.className='ok';err.textContent='Passwort geändert ✓';f.reset()}catch(x){err.className='err';err.textContent=x.message}};
+  sh.onchange=()=>[c1,c2,c3].forEach(i=>i.type=sh.checked?'text':'password');
+  f.onsubmit=async e=>{e.preventDefault();err.className='err';
+    if(c2.value!==c3.value){err.textContent='Die beiden neuen Passwörter sind nicht gleich.';return}
+    if(c2.value.length<10){err.textContent='Neues Passwort: mindestens 10 Zeichen.';return}
+    try{await api('/api/me/password','POST',{current:c1.value,next:c2.value});err.className='ok';err.textContent='Passwort geändert ✓ Ab jetzt gilt nur noch das neue Passwort.';f.reset();sh.checked=false;[c1,c2,c3].forEach(i=>i.type='password')}catch(x){err.textContent=x.message}};
   lo.onclick=async()=>{await api('/api/logout','POST');me=null;showLogin()}}
 
 async function route(){

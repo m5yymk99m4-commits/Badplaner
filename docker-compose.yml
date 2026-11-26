@@ -4,6 +4,8 @@ services:
     build: .
     restart: unless-stopped
     env_file: .env
+    environment:
+      - TRUST_PROXY=1
     volumes:
       - daten:/app/data
   caddy:

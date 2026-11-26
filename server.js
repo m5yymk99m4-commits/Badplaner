@@ -12,6 +12,7 @@ const PORT = Number(process.env.PORT || 8080);
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const COOKIE_SECURE = process.env.COOKIE_SECURE === '1'; // auf 1 setzen, sobald HTTPS läuft
+const TRUST_PROXY = process.env.TRUST_PROXY === '1'; // 1 = hinter Caddy, echte Besucher-IP aus X-Forwarded-For
 const SESSION_DAYS = 30;
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -154,7 +155,8 @@ const route = (method, pattern, fn) => routes.push({ method, re: new RegExp('^' 
 route('GET', '/api/health', () => ({ ok: true }));
 
 route('POST', '/api/login', async (req, res) => {
-  const ip = req.socket.remoteAddress || '';
+  const fwd = TRUST_PROXY && String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  const ip = fwd || req.socket.remoteAddress || '';
   if (tooMany(ip)) throw new HttpError(429, 'Zu viele Versuche. Bitte in 10 Minuten erneut probieren.');
   const { email, password } = await readJson(req);
   const u = db.prepare('SELECT * FROM users WHERE email = ?').get(str(email, 200));
