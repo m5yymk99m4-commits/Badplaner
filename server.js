@@ -15,7 +15,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const COOKIE_SECURE = process.env.COOKIE_SECURE === '1'; // auf 1 setzen, sobald HTTPS läuft
 const TRUST_PROXY = process.env.TRUST_PROXY === '1'; // 1 = hinter Caddy, echte Besucher-IP aus X-Forwarded-For
 const SESSION_DAYS = 30;
-const APP_VERSION = '2026-11-27.16';
+const APP_VERSION = '2026-11-27.17';
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 const db = new DatabaseSync(path.join(DATA_DIR, 'badplaner.db'));
@@ -410,6 +410,21 @@ route('POST', '/api/projects/:id/ai-design', async (req, res, u, p) => {
   if (proj.status === 'neu') db.prepare(`UPDATE projects SET status = 'in_planung' WHERE id = ?`).run(proj.id);
   touch(proj.id);
   return { created, hinweise: drafts.map(d => d.hinweise) };
+});
+// KI-Aufteilungs-Vorschläge für den aktuellen Grundriss im Planer (ändert nichts, liefert nur Vorschläge)
+route('POST', '/api/variants/:id/layouts', async (req, res, u, p) => {
+  needUser(u);
+  const v = getVariant(Number(p.id)), b = await readJson(req, 2e6), proj = getProject(v.project_id);
+  const plan = b.plan && Array.isArray(b.plan.pts) && b.plan.pts.length >= 3 && b.plan.pts.length <= 40 && b.plan.pts.every(q => Array.isArray(q) && q.length === 2 && q.every(Number.isFinite)) ? b.plan : JSON.parse(v.plan_json || '{}');
+  if (!Array.isArray(plan.items)) plan.items = [];
+  const wishes = { ...JSON.parse(proj.wishes_json || '{}') };
+  if (typeof b.wunsch === 'string' && b.wunsch.trim()) wishes.sonstiges = [wishes.sonstiges, b.wunsch.trim().slice(0, 1500)].filter(Boolean).join(' · ');
+  if (Array.isArray(b.chips) && b.chips.length) wishes.freitext = [wishes.freitext, 'Gewünscht: ' + b.chips.map(String).slice(0, 12).join(', ')].filter(Boolean).join(' · ');
+  if (aiBusy >= 3) throw new HttpError(429, 'Es laufen gerade schon mehrere KI-Planungen. Bitte kurz warten.');
+  aiBusy++;
+  try { return { vorschlaege: await ai.layouts(aiConfig(), plan, wishes, Math.min(Math.max(Number(b.count) || 5, 2), 6)) }; }
+  catch (e) { throw new HttpError(e.status || 500, e.message || 'KI-Fehler'); }
+  finally { aiBusy--; }
 });
 // KI-Fotos
 const PHOTO_DIR = path.join(DATA_DIR, 'photos');

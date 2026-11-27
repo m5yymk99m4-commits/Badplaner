@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#ffffff">
 <title>Badplaner VR</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{color-scheme:light dark;--bg:light-dark(#ffffff,#1b1814);--panel:light-dark(#ffffff,#25211c);--beige:light-dark(#f2eadd,#2e2922);--beigeb:light-dark(#e2d4bf,#433b31);--ink:light-dark(#2b2620,#f1ebe1);--mute:light-dark(#7a6e60,#b4a897);--line:light-dark(#e7dccd,#3a342c);--pet:light-dark(#566b4a,#a9bd96);--petbg:light-dark(#ebeedf,#2c3326);--brass:#b8862f;--bad:light-dark(#b0472f,#ec8f77);--soft:light-dark(#efe6d8,#2c2721);--shadow:0 6px 24px rgba(60,45,25,.10)}
 :root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
@@ -90,6 +90,7 @@ details.more summary{cursor:pointer;font-weight:600;color:var(--pet);min-height:
 .login h1{margin-bottom:6px}
 .muted{color:var(--mute)}
 </style>
+<link rel="stylesheet" href="/ui.css?v=17">
 </head>
 <body>
 <div class="wrap" id="app"><p class="muted">Lädt …</p></div>
@@ -106,24 +107,34 @@ async function api(path,method='GET',body){
   if(r.status===401&&path!=='/api/login'){me=null;showLogin();throw new Error('abgemeldet')}
   if(!r.ok)throw new Error(data.error||'Fehler '+r.status);
   return data}
+const IC={
+  logo:'<svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="var(--pet)"/><path d="M8 9h7v7H8zM17 9h7v7h-7zM8 18h7v5H8z" fill="#fff" opacity=".92"/><path d="M20.5 18.2c1.8 2.2 2.8 3.7 2.8 4.9a2.8 2.8 0 0 1-5.6 0c0-1.2 1-2.7 2.8-4.9z" fill="#e9c88a"/></svg>',
+  p:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2h7.5A2.5 2.5 0 0 1 21 9.5v8A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"/></svg>',
+  t:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.8a3.3 3.3 0 0 1 0 6.4M18.2 14.8c1.7.7 2.8 2.4 3.3 5.2"/></svg>',
+  a:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>',
+  k:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="4"/><path d="M4 20.5c1.2-4 4.3-6 8-6s6.8 2 8 6"/></svg>'};
+const logoH=`<a class="logo" href="#/">${IC.logo}<span>Badplaner<small>Planung &amp; VR-Beratung</small></span></a>`;
 function shell(active,inner){
-  app.innerHTML=`<header><a class="brand" href="#/">Badplaner <b>VR</b></a><nav>
-    <a href="#/" class="${active==='p'?'on':''}">Projekte</a>${me.role==='admin'?`<a href="#/team" class="${active==='t'?'on':''}">Team</a><a href="#/ki" class="${active==='a'?'on':''}">KI</a>`:''}<a href="#/konto" class="${active==='k'?'on':''}">Konto</a></nav></header>${inner}<p class="muted" style="font-size:12.5px;margin-top:36px;text-align:center">Version ${esc(me.version||'?')}</p>`}
+  const tabs=[['p','#/','Projekte'],...(me.role==='admin'?[['t','#/team','Team'],['a','#/ki','KI']]:[]),['k','#/konto','Konto']];
+  const links=()=>tabs.map(([k,h,l])=>`<a href="${h}" class="${active===k?'on':''}">${IC[k]}<span>${l}</span></a>`).join('');
+  document.body.classList.add('hastabs');
+  app.innerHTML=`<header class="appbar">${logoH}<nav class="topnav2">${links()}</nav></header>${inner}<p class="muted" style="font-size:12.5px;margin-top:36px;text-align:center">Version ${esc(me.version||'?')}</p><nav class="tabbar">${links()}</nav>`}
 function showLogin(){
-  app.innerHTML=`<div class="login"><div class="brand">Badplaner <b>VR</b></div><h1>Anmelden</h1><p class="muted">Nur für Mitarbeiter.</p>
+  document.body.classList.remove('hastabs');app.innerHTML=`<div class="loginwrap"><div class="login" style="margin:0;width:100%">${logoH}<h1>Anmelden</h1><p class="muted">Nur für Mitarbeiter.</p>
   <form class="card" id="f"><label for="em">E-Mail</label><input id="em" type="email" autocomplete="username" autocapitalize="off" required>
   <label for="pw">Passwort</label><input id="pw" type="password" autocomplete="current-password" autocapitalize="off" spellcheck="false" required>
   <label style="display:flex;gap:8px;align-items:center;font-weight:500"><input type="checkbox" id="shp" style="width:auto"> Passwort anzeigen</label>
-  <div class="acts"><button class="btn" style="width:100%">Anmelden</button></div><p class="err" id="err"></p></form></div>`;
+  <div class="acts"><button class="btn" style="width:100%">Anmelden</button></div><p class="err" id="err"></p></form></div></div>`;
   shp.onchange=()=>{pw.type=shp.checked?'text':'password'};
   document.getElementById('f').onsubmit=async e=>{e.preventDefault();try{me=await api('/api/login','POST',{email:em.value.trim(),password:pw.value});route()}catch(x){err.textContent=x.message}}}
 
 async function viewProjects(){
-  shell('p',`<h1>Kundenprojekte</h1><div class="search"><input id="q" type="search" placeholder="Kunde oder Adresse suchen" value="${esc(query)}"><a class="btn" href="#/neu">+ Neu</a></div>
+  shell('p',`<div class="pagehead"><div><h1>Projekte</h1><p>Alle Kundenbäder auf einen Blick</p></div></div><div class="kpis" id="kp"></div><div class="search"><input id="q" type="search" placeholder="Kunde oder Adresse suchen" value="${esc(query)}"><a class="btn" href="#/neu">+ Neu</a></div>
     <div class="filters" id="fl">${['alle',...Object.keys(STATUS)].map(s=>`<button data-s="${s}" class="${filter===s?'on':''}">${s==='alle'?'Alle':STATUS[s]}</button>`).join('')}</div><div class="list" id="ls"><p class="muted">Lädt …</p></div>`);
   const all=await api('/api/projects');
+  const cnt=k=>all.filter(p=>p.status===k).length;kp.innerHTML=`<div><b>${all.length}</b>Projekte</div><div><b>${cnt('in_planung')+cnt('neu')}</b>in Planung</div><div><b>${cnt('angebot')+cnt('auftrag')}</b>Angebote</div>`;
   const draw=()=>{const q=query.toLowerCase(),rows=all.filter(p=>(filter==='alle'||p.status===filter)&&(p.customer_name+' '+p.address).toLowerCase().includes(q));
-    ls.innerHTML=rows.length?rows.map(p=>`<a class="item" href="#/projekt/${p.id}"><b>${esc(p.customer_name)}</b><span class="pill ${p.status}">${STATUS[p.status]}</span><small>${esc(p.address||'Keine Adresse')} · ${p.variant_count} Variante${p.variant_count===1?'':'n'} · ${fmt(p.updated_at)}</small></a>`).join('')
+    ls.innerHTML=rows.length?rows.map(p=>`<a class="item" href="#/projekt/${p.id}"><span class="av">${esc(p.customer_name.split(/[\s,]+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase())}</span><b>${esc(p.customer_name)}</b><span class="pill ${p.status}">${STATUS[p.status]}</span><small>${esc(p.address||'Keine Adresse')} · ${p.variant_count} Variante${p.variant_count===1?'':'n'} · ${fmt(p.updated_at)}</small></a>`).join('')
       :`<div class="empty">${all.length?'Keine Treffer.':'Noch keine Projekte. Legen Sie das erste Kundenprojekt an.'}</div>`};
   draw();q.oninput=()=>{query=q.value;draw()};
   fl.onclick=e=>{const b=e.target.closest('button');if(!b)return;filter=b.dataset.s;fl.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));draw()}}

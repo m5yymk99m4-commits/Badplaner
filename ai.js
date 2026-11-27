@@ -53,47 +53,78 @@ function dimsOf(it) {
   return { w: it.w ?? v.w, d: it.d ?? (v.d || 0), h: it.h ?? v.h, y: it.y ?? v.y };
 }
 
-// ---------- Prüfung der KI-Ergebnisse ----------
+// ---------- Montageflächen (wie im Planer: Raumwände, beide Seiten freier Wände, beide Seiten von Trennwänden) ----------
+function mounts(plan) {
+  const out = walls(plan.pts).map((w, i) => ({ ...w, n: [-w.d[1], w.d[0]], key: i, name: `W${i + 1}` }));
+  const fws = plan.items.filter(it => it.type === 'fw' && it.a && it.b), h = .06;
+  fws.forEach((f, k) => {
+    const dx = f.b[0] - f.a[0], dz = f.b[1] - f.a[1], l = Math.hypot(dx, dz) || .001, d = [dx / l, dz / l], n = [-d[1], d[0]];
+    out.push({ key: 'f' + f.id + 'p', fw: f.id, A: [f.a[0] + n[0] * h, f.a[1] + n[1] * h], len: l, d, n, name: `F${k + 1}A` });
+    out.push({ key: 'f' + f.id + 'm', fw: f.id, A: [f.b[0] - n[0] * h, f.b[1] - n[1] * h], len: l, d: [-d[0], -d[1]], n: [-n[0], -n[1]], name: `F${k + 1}B` });
+  });
+  const roomW = out.slice();
+  plan.items.filter(it => it.type === 'tw').forEach((tw, k) => {
+    const base = roomW.find(m => m.key === tw.wall) || roomW[0], L = Math.max(dimsOf(tw).d, .05), P = s0 => [base.A[0] + base.d[0] * s0, base.A[1] + base.d[1] * s0];
+    const am = P(tw.t - h), ap = P(tw.t + h);
+    out.push({ key: 't' + tw.id + 'm', tw: tw.id, A: am, len: L, d: base.n, n: [-base.d[0], -base.d[1]], name: `T${k + 1}A` });
+    out.push({ key: 't' + tw.id + 'p', tw: tw.id, A: [ap[0] + base.n[0] * L, ap[1] + base.n[1] * L], len: L, d: [-base.n[0], -base.n[1]], n: base.d, name: `T${k + 1}B` });
+  });
+  return out;
+}
+const mountOf = (it, ms) => (it.host && ms.find(m => m.key === it.host)) || ms.find(m => m.key === it.wall) || ms[0];
+
+// ---------- Prüfung der KI-Ergebnisse (echte Flächen im Raum) ----------
+function insidePoly(pts, x, z) { let c = false; pts.forEach((a, i) => { const b = pts[(i + 1) % pts.length]; if ((a[1] > z) !== (b[1] > z) && x < (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1]) + a[0]) c = !c; }); return c; }
+function rectOf(m, u0, u1, v0, v1) { const P = (u, v) => [m.A[0] + m.d[0] * u + m.n[0] * v, m.A[1] + m.d[1] * u + m.n[1] * v]; return [P(u0, v0), P(u1, v0), P(u1, v1), P(u0, v1)]; }
+function overlap(p, q) { // Trennachsen-Test für zwei konvexe Vierecke
+  for (const poly of [p, q]) for (let i = 0; i < 4; i++) {
+    const a = poly[i], b = poly[(i + 1) % 4], ax = -(b[1] - a[1]), az = b[0] - a[0];
+    const pr = r => r.map(c => c[0] * ax + c[1] * az), P = pr(p), Q = pr(q);
+    if (Math.max(...P) <= Math.min(...Q) || Math.max(...Q) <= Math.min(...P)) return false;
+  }
+  return true;
+}
+function nameOf(it) { if (it.type === 'tu') return 'Tür (Schwenkbereich)'; if (it.type === 'fw') return 'freistehende Wand'; return CATALOG[it.type].vars[it.v].name; }
 function conflicts(plan) {
-  const W = walls(plan.pts), out = [], n = W.length;
-  const floor = plan.items.filter(it => (FLOOR_TYPES.includes(it.type) && !(it.type === 'mo' && it.v === 'regal')) || it.type === 'tu').map(it => {
-    const D = dimsOf(it.type === 'tu' ? { ...it, type: 'ni', v: 'n' } : it);
-    const w = it.type === 'tu' ? (it.w ?? .86) : D.w;
-    return { it, a: it.t - w / 2, b: it.t + w / 2, d: it.type === 'tu' ? w : D.d, name: it.type === 'tu' ? 'Tür (Schwenkbereich)' : CATALOG[it.type].vars[it.v].name };
+  const ms = mounts(plan), out = [], S = .03;
+  const fl = plan.items.filter(it => it.type === 'tu' || it.type === 'fw' || (FLOOR_TYPES.includes(it.type) && !(it.type === 'mo' && it.v === 'regal')));
+  const shapes = fl.map(it => {
+    if (it.type === 'fw') { const dx = it.b[0] - it.a[0], dz = it.b[1] - it.a[1], l = Math.hypot(dx, dz) || .001, m = { A: it.a, d: [dx / l, dz / l], n: [-dz / l, dx / l] }; return { it, r: rectOf(m, S, l - S, -.06 + S, .06 - S), m, at: 'frei' }; }
+    const m = mountOf(it, ms), D = dimsOf(it.type === 'tu' ? { ...it, type: 'ni', v: 'n' } : it), w = it.type === 'tu' ? (it.w ?? .86) : D.w, d = it.type === 'tu' ? w : D.d, o = it.off || 0;
+    return { it, m, at: m.name, w, d, o, r: rectOf(m, it.t - w / 2 + S, it.t + w / 2 - S, o + S, o + d - S) };
   });
-  floor.forEach(f => {
-    const L = W[f.it.wall].len;
-    if (f.a < -.01 || f.b > L + .01) out.push(`${f.name} ragt über Wand W${f.it.wall + 1} hinaus (Wand ist ${de(L)} m lang).`);
+  shapes.forEach(s => {
+    if (s.it.type === 'fw' || s.it.type === 'tu') return;
+    if (s.it.t - s.w / 2 < -.02 || s.it.t + s.w / 2 > s.m.len + .02) out.push(`${nameOf(s.it)} ragt über ${s.at} hinaus (${s.at} ist ${de(s.m.len)} m lang, Objekt ${de(s.w)} m breit, abstand ${de(s.it.t)}).`);
+    else if (!s.r.every(c => insidePoly(plan.pts, c[0], c[1]))) out.push(`${nameOf(s.it)} an ${s.at} ragt aus dem Raum heraus.`);
   });
-  for (let i = 0; i < floor.length; i++) for (let j = i + 1; j < floor.length; j++) {
-    const p = floor[i], q = floor[j];
-    if (p.it.wall === q.it.wall && p.a < q.b - .05 && q.a < p.b - .05) out.push(`${p.name} und ${q.name} überlappen sich auf Wand W${p.it.wall + 1}.`);
+  for (let i = 0; i < shapes.length; i++) for (let j = i + 1; j < shapes.length; j++) {
+    const p = shapes[i], q = shapes[j];
+    if (p.it.type === 'tu' && q.it.type === 'tu') continue;
+    const host = (x, y) => x.it.host && y.it.id != null && (x.it.host === 'f' + y.it.id + 'p' || x.it.host === 'f' + y.it.id + 'm' || x.it.host === 't' + y.it.id + 'p' || x.it.host === 't' + y.it.id + 'm');
+    if (host(p, q) || host(q, p)) continue;
+    if (overlap(p.r, q.r)) out.push(`${nameOf(p.it)} (${p.at}) und ${nameOf(q.it)} (${q.at}) überschneiden sich.`);
   }
-  for (let i = 0; i < n; i++) {
-    const next = (i + 1) % n;
-    if (!cornerKind(W, i).startsWith('normale')) continue;
-    floor.filter(f => f.it.wall === i).forEach(p => floor.filter(f => f.it.wall === next).forEach(q => {
-      const distP = W[i].len - p.b, distQ = q.a;
-      if (distP < q.d - .02 && distQ < p.d - .02) out.push(`${p.name} (W${i + 1}) und ${q.name} (W${next + 1}) stoßen in der Ecke zusammen.`);
-    }));
-  }
-  // Objekte, die in einer freistehenden Wand stehen
-  const fws = plan.items.filter(it => it.type === 'fw' && it.a && it.b);
-  if (fws.length) floor.filter(f => f.it.type !== 'tu').forEach(f => {
-    const w = W[f.it.wall], n2 = [-w.d[1], w.d[0]];
-    const inside = (x, z) => { const rx = x - w.A[0], rz = z - w.A[1], u = rx * w.d[0] + rz * w.d[1], v = rx * n2[0] + rz * n2[1]; return u > f.a + .02 && u < f.b - .02 && v > .02 && v < f.d - .02; };
-    fws.forEach(fw => { const L = Math.hypot(fw.b[0] - fw.a[0], fw.b[1] - fw.a[1]), steps = Math.max(2, Math.ceil(L / .05));
-      for (let k = 0; k <= steps; k++) { const x = fw.a[0] + (fw.b[0] - fw.a[0]) * k / steps, z = fw.a[1] + (fw.b[1] - fw.a[1]) * k / steps; if (inside(x, z)) { out.push(`${f.name} (W${f.it.wall + 1}) steht in einer freistehenden Wand.`); break; } } });
+  // Bewegungsfläche vor WC, Waschtisch und Wanne
+  shapes.filter(s => ['wc', 'wt', 'wa'].includes(s.it.type)).forEach(s => {
+    const front = rectOf(s.m, s.it.t - s.w / 2 + .08, s.it.t + s.w / 2 - .08, s.o + s.d + S, s.o + s.d + .55);
+    const blocked = shapes.find(q => q !== s && q.it.type !== 'tu' && overlap(front, q.r));
+    if (blocked) out.push(`Vor ${nameOf(s.it)} (${s.at}) ist zu wenig Platz: ${nameOf(blocked.it)} steht im Weg (mind. 55 cm frei lassen).`);
+    else if (!front.every(c => insidePoly(plan.pts, c[0], c[1]))) out.push(`Vor ${nameOf(s.it)} (${s.at}) ist zu wenig Platz bis zur Wand (mind. 55 cm frei lassen).`);
   });
   return [...new Set(out)];
 }
 
 // ---------- Plan aus KI-Antwort bauen ----------
 function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
-function normalize(base, e) {
+function keepMaterial(base) {
+  const k = ['wall', 'floor', 'grout', 'tileH', 'finish', 'furn', 'accent', 'accentTile', 'mood', 'deko', 'fbh', 'luefter'], o = {};
+  k.forEach(x => { if (base[x] !== undefined) o[x] = base[x]; }); return o;
+}
+function normalize(base, e, layoutOnly) {
   const W = walls(base.pts), n = W.length;
   const m = e.material || {};
-  const plan = {
+  const plan = layoutOnly ? { H: base.H || 2.5, pts: base.pts, wall: 'weiss', floor: 'eiche', grout: 'auto', tileH: 'voll', finish: 'chrom', furn: 'eiche', accent: null, accentTile: 'navy', mood: 'tag', deko: true, ...keepMaterial(base), items: [] } : {
     H: base.H || 2.5, pts: base.pts,
     wall: TILES_WALL[m.wandfliese] ? m.wandfliese : 'weiss',
     floor: TILES_FLOOR[m.bodenfliese] ? m.bodenfliese : 'eiche',
@@ -106,12 +137,18 @@ function normalize(base, e) {
     mood: 'tag', deko: true, items: [],
   };
   let id = 1;
-  (base.items || []).filter(it => it.type === 'tu' || it.type === 'fe' || it.type === 'fw').forEach(it => plan.items.push({ ...it, id: id++ }));
-  (Array.isArray(e.objekte) ? e.objekte : []).slice(0, 20).forEach(o => {
-    const cat = CATALOG[o.typ];
-    if (!cat || !cat.vars[o.modell]) return;
-    const wall = clamp(Math.round(Number(o.wand) || 1), 1, n) - 1;
-    const it = { id: id++, type: o.typ, v: o.modell, wall, t: 0 };
+  (base.items || []).filter(it => it.type === 'tu' || it.type === 'fe' || (it.type === 'fw' && !(layoutOnly && it.ki))).forEach(it => plan.items.push({ ...it, id: id++ }));
+  // neue freistehende Wände (T-Lösung, Raumteiler)
+  const xs = base.pts.map(p => p[0]), zs = base.pts.map(p => p[1]), inBox = p => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite) && p[0] >= Math.min(...xs) - .01 && p[0] <= Math.max(...xs) + .01 && p[1] >= Math.min(...zs) - .01 && p[1] <= Math.max(...zs) + .01;
+  (Array.isArray(e.freiewaende) ? e.freiewaende : []).slice(0, 4).forEach(f => {
+    const a = (f.von || []).map(Number), b = (f.bis || []).map(Number);
+    if (!inBox(a) || !inBox(b) || Math.hypot(b[0] - a[0], b[1] - a[1]) < .3) return;
+    plan.items.push({ id: id++, type: 'fw', v: f.hoehe === 'halb' ? 'halb' : 'hoch', a: a.map(r2), b: b.map(r2), ki: true });
+  });
+  const objs = (Array.isArray(e.objekte) ? e.objekte : []).slice(0, 24).filter(o => CATALOG[o.typ] && CATALOG[o.typ].vars[o.modell]);
+  const wallIdx = o => { const s0 = String(o.an || '').toUpperCase().match(/^W(\d+)$/); const v = s0 ? Number(s0[1]) : Math.round(Number(o.wand) || 1); return clamp(v, 1, n) - 1; };
+  const make = o => {
+    const cat = CATALOG[o.typ], it = { id: id++, type: o.typ, v: o.modell, wall: wallIdx(o), t: 0 };
     if (cat.arms) it.arm = cat.arms[o.armatur] ? o.armatur : Object.keys(cat.arms)[0];
     const v = cat.vars[o.modell];
     if (cat.size) {
@@ -121,9 +158,23 @@ function normalize(base, e) {
       if (cat.size.d) it.d = r2(clamp(Number(o.laenge) || v.d, ...cat.size.d));
     }
     Object.entries(cat.opts || {}).forEach(([name, op]) => { const val = o[name]; it[op.key] = op.list[val] ? val : Object.keys(op.list)[0]; });
-    const w = it.w ?? v.w, L = W[wall].len;
-    it.t = r2(clamp(Number(o.abstand) || L / 2, Math.min(w / 2, L / 2), Math.max(L - w / 2, L / 2)));
     if (o.gespiegelt === true) it.flip = true;
+    if (o.typ === 'wa' && Number(o.abstand_raum) > .1) it.off = r2(clamp(Number(o.abstand_raum), 0, 3));
+    return it;
+  };
+  // erst Trennwände (andere Objekte können daran hängen), dann der Rest
+  const tws = objs.filter(o => o.typ === 'tw').map(o => { const it = make(o); plan.items.push(it); return { o, it }; });
+  tws.forEach(({ o, it }) => { const L = W[it.wall].len; it.t = r2(clamp(Number(o.abstand) || L / 2, .06, L - .06)); });
+  objs.filter(o => o.typ !== 'tw').forEach(o => {
+    const it = make(o), ms = mounts(plan), key = String(o.an || '').toUpperCase(), mm = key.match(/^([FT])(\d+)([AB])$/);
+    let m = null, a0 = Number(o.abstand);
+    if (mm) {
+      m = ms.find(x => x.name === key);
+      if (m) { it.host = m.key; if (Number.isFinite(a0) && mm[3] === 'B') a0 = m.len - a0; } // Seite B läuft andersherum: abstand ab von/Wand umrechnen
+    }
+    if (!m) m = ms.find(x => x.key === it.wall);
+    const w = dimsOf(it).w, L = m.len;
+    it.t = r2(clamp(Number.isFinite(a0) ? a0 : L / 2, Math.min(w / 2, L / 2), Math.max(L - w / 2, L / 2)));
     plan.items.push(it);
   });
   plan.nid = id;
@@ -169,7 +220,9 @@ function describe(base, wishes, trends, webTrends) {
   const fws = (base.items || []).filter(it => it.type === 'fw' && Array.isArray(it.a) && Array.isArray(it.b));
   if (fws.length) {
     lines.push('\nFREISTEHENDE WÄNDE (vom Berater gesetzt, bleiben fest, Koordinaten in m wie bei den Ecken, 12 cm dick)');
-    fws.forEach(f => lines.push(`- ${f.v === 'hoch' ? 'raumhoch' : 'halbhoch 1,20 m'} von ${pt(f.a)} bis ${pt(f.b)}. Diese Wand teilt den Raum: plane Dusche, WC usw. so, dass sie nicht in dieser Wand stehen. Wände, die an diese Wand anstoßen, bilden eine T-Lösung, z. B. für eine Dusche hinter der Wand.`));
+    const dir = v => Math.abs(v[0]) > Math.abs(v[1]) ? (v[0] > 0 ? '+x' : '−x') : (v[1] > 0 ? '+z' : '−z');
+    fws.forEach((f, k) => { const dx = f.b[0] - f.a[0], dz = f.b[1] - f.a[1], l = Math.hypot(dx, dz) || 1, nA = [-dz / l, dx / l];
+      lines.push(`- F${k + 1}: ${f.v === 'hoch' ? 'raumhoch' : 'halbhoch 1,20 m'}, von ${pt(f.a)} bis ${pt(f.b)}, ${de(l)} m lang. Seite F${k + 1}A zeigt Richtung ${dir(nA)}, Seite F${k + 1}B Richtung ${dir([-nA[0], -nA[1]])}. Objekte können an beide Seiten (an = "F${k + 1}A" oder "F${k + 1}B", abstand ab dem von-Punkt).`); });
   }
   const fixed = (base.items || []).filter(it => it.type === 'tu' || it.type === 'fe');
   lines.push('\nFESTE ÖFFNUNGEN');
@@ -288,16 +341,16 @@ async function request(cfg, body, timeoutMs, timeoutMsg) {
   }
 }
 
-async function callClaude(cfg, messages, timeoutMs = 240000) {
+async function callClaude(cfg, messages, timeoutMs = 240000, tool = TOOL, system = SYSTEM, field = 'entwuerfe') {
   // Kein erzwungenes Werkzeug (nicht jedes Modell unterstützt das): KI bekommt es angeboten und soll es nutzen.
   const msgs = [...messages];
   for (let attempt = 0; attempt < 2; attempt++) {
-    const data = await request(cfg, { max_tokens: 32000, system: SYSTEM, tools: [TOOL], tool_choice: { type: 'auto' }, messages: msgs }, timeoutMs);
-    const use = (data.content || []).find(c => c.type === 'tool_use' && c.name === TOOL.name);
-    if (use && Array.isArray(use.input?.entwuerfe) && use.input.entwuerfe.length) return { use, raw: data };
+    const data = await request(cfg, { max_tokens: 32000, system, tools: [tool], tool_choice: { type: 'auto' }, messages: msgs }, timeoutMs);
+    const use = (data.content || []).find(c => c.type === 'tool_use' && c.name === tool.name);
+    if (use && Array.isArray(use.input?.[field]) && use.input[field].length) return { use, raw: data };
     if (data.stop_reason === 'max_tokens') throw new AiError(502, 'Die Antwort der KI war zu lang. Bitte weniger Ideen auf einmal erstellen.');
     msgs.push({ role: 'assistant', content: data.content && data.content.length ? data.content : [{ type: 'text', text: '…' }] });
-    msgs.push({ role: 'user', content: 'Bitte speichere die Entwürfe jetzt mit dem Werkzeug „entwuerfe_speichern“. Keine weiteren Erklärungen.' });
+    msgs.push({ role: 'user', content: `Bitte speichere das Ergebnis jetzt mit dem Werkzeug „${tool.name}“. Keine weiteren Erklärungen.` });
   }
   throw new AiError(502, 'Die KI hat keine gültigen Entwürfe geliefert. Bitte noch einmal versuchen.');
 }
@@ -320,6 +373,88 @@ async function design(cfg, base, wishes, count = 3) {
     } catch (e) { /* erste Version behalten */ }
   }
   return plans.map(({ e, plan }) => ({ name: String(e.titel || 'KI-Entwurf').slice(0, 80), note: String(e.beschreibung || '').slice(0, 1200), plan, hinweise: conflicts(plan) }));
+}
+
+// ---------- Aufteilungs-Vorschläge (nur Anordnung, Materialien bleiben) ----------
+const SYSTEM_L = `Du bist ein erfahrener, kreativer Badplaner in Deutschland und kennst die aktuellen Trends der Badgestaltung.
+Du bekommst einen vermessenen Grundriss mit Tür und Fenster. Schlage verschiedene, wirklich baubare AUFTEILUNGEN vor: wo Dusche, WC, Waschtisch, Wanne usw. stehen – auch mit Wänden mitten im Raum.
+Speichere IMMER mit dem Werkzeug "aufteilungen_speichern" (alle in einem Aufruf). Kein Text außerhalb des Werkzeugs.
+
+Koordinaten: Meter, x nach rechts, z nach unten (wie im Grundriss). Die Ecken stehen in der Raumbeschreibung.
+
+Wo ein Objekt hängt ("an"):
+- "W1", "W2" …: Raumwand. abstand = Objektmitte ab Wandanfang. Das Objekt ragt in den Raum.
+- Freistehende Wände legst du selbst im Feld "freiewaende" an (von/bis als [x, z], 12 cm dick, hoehe "hoch" oder "halb" = 1,20 m). Sie heißen in Reihenfolge F1, F2 … (bereits vorhandene freistehende Wände zählen zuerst, siehe Raumbeschreibung).
+  Ein Ende darf eine Raumwand berühren (das ist die klassische T-Lösung: Wand vom Raumrand in den Raum) – dann liegt das Ende genau auf der Raumwand.
+  Jede freistehende Wand hat zwei Seiten: "F1A" und "F1B". Seite A zeigt in Richtung (−dz, dx), wenn (dx, dz) die Richtung von "von" nach "bis" ist. Beispiel: von [1, 0] bis [1, 1,5] → Richtung (0, 1) → Seite A zeigt nach −x (links), Seite B nach +x (rechts).
+  abstand auf F-Seiten = Objektmitte ab dem von-Punkt entlang der Wand.
+- Trennwand "tw" (steht senkrecht auf einer Raumwand, laenge = wie weit sie in den Raum ragt). Sie heißen in Reihenfolge der tw-Objekte T1, T2 … Seiten: "T1A" (zeigt zum Wandanfang der Raumwand) und "T1B" (zeigt zum Wandende). abstand auf T-Seiten = Objektmitte ab der Raumwand.
+- Badewanne frei im Raum: an eine Wand hängen und "abstand_raum" (Abstand von der Wand in m) setzen, z. B. freistehende Wanne 0,4–0,8 m vor der Wand oder vor dem Fenster.
+
+Typische moderne Lösungen (nutze sie, wo der Raum es hergibt):
+- T-Lösung: raumhohe oder halbhohe Wand in den Raum, dahinter Walk-in-Dusche (ohne Glastür), davor Waschtisch an der Wand selbst.
+- WC-Nische: WC hinter einer halbhohen Trennwand oder zwischen Trennwand und Raumwand, vom Eingang nicht direkt sichtbar.
+- Raumteiler mit Waschtisch: halbhohe freistehende Wand mitten im Raum, Waschtisch und Spiegel an einer Seite, Dusche oder Wanne an der anderen.
+- Walk-in über die ganze Raumbreite am Ende des Raums (Nasszone), gemauert oder mit Glas.
+- Freistehende Wanne als Blickfang (vor dem Fenster oder mittig), Dusche separat.
+- Klassisch an den Wänden: alles an den Raumwänden, maximal offen und günstig.
+- Doppelwaschtisch für Paare, Dusch-WC, Platz für Waschmaschine, viel Stauraum – je nach Wünschen.
+
+Regeln:
+- Objekte dürfen sich nicht überschneiden, nicht in Wänden stehen und nicht aus dem Raum ragen. Vor WC, Waschtisch, Wanne und Duscheinstieg mindestens 60–75 cm frei.
+- Die Tür und ihr Schwenkbereich (Türbreite tief) bleiben frei. Fenster mit niedriger Brüstung nicht zustellen.
+- Wand-WC und Dusch-WC brauchen eine Vorwand, die ist enthalten – das WC kann deshalb auch an eine Trennwand oder freistehende Wand (mindestens halbhoch).
+- Zu jedem WC: Toilettenpapierhalter (ac papier) und WC-Bürste (ac buerste) an derselben Fläche daneben. Spiegel (sp) über dem Waschtisch an derselben Fläche, gleicher abstand. Handtuchheizkörper an eine freie Wandfläche. Duschen bodengleich mit Rinne.
+- Mindestens 1,20 m breit für einen Durchgang hinter einer Wand in eine Walk-in-Dusche ist großzügig, 0,70 m ist das Minimum.
+- Jede Aufteilung soll sich in der ANORDNUNG klar unterscheiden. Wenn der Raum für eine Lösung zu klein ist, lass sie weg.
+- titel: 2–4 Wörter. beschreibung: 2 kurze Sätze für den Endkunden, warum diese Anordnung gut ist. trend: ein kurzer Satz, welchen aktuellen Trend sie aufgreift (aus der Trend-Recherche).`;
+const TOOL_L = {
+  name: 'aufteilungen_speichern',
+  description: 'Speichert die Aufteilungs-Vorschläge für das Bad.',
+  input_schema: {
+    type: 'object', required: ['aufteilungen'],
+    properties: {
+      aufteilungen: { type: 'array', minItems: 1, maxItems: 6, items: {
+        type: 'object', required: ['titel', 'konzept', 'beschreibung', 'objekte'],
+        properties: {
+          titel: { type: 'string' },
+          konzept: { type: 'string', enum: ['t_loesung', 'wc_nische', 'raumteiler', 'nasszone', 'freistehende_wanne', 'klassisch', 'sonstiges'] },
+          beschreibung: { type: 'string' }, trend: { type: 'string' },
+          freiewaende: { type: 'array', items: { type: 'object', required: ['von', 'bis', 'hoehe'], properties: {
+            von: { type: 'array', items: { type: 'number' }, minItems: 2, maxItems: 2 }, bis: { type: 'array', items: { type: 'number' }, minItems: 2, maxItems: 2 }, hoehe: { type: 'string', enum: ['hoch', 'halb'] } } } },
+          objekte: { type: 'array', items: { type: 'object', required: ['typ', 'modell', 'an', 'abstand'], properties: {
+            typ: { type: 'string', enum: PLACEABLE }, modell: { type: 'string' }, armatur: { type: 'string' },
+            an: { type: 'string', description: 'W1…, F1A/F1B…, T1A/T1B…' },
+            abstand: { type: 'number' }, abstand_raum: { type: 'number', description: 'nur Wanne: Abstand von der Fläche in den Raum' },
+            breite: { type: 'number' }, hoehe: { type: 'number' }, unterkante: { type: 'number' }, laenge: { type: 'number', description: 'nur Trennwand tw' },
+            trennung: { type: 'string', enum: Object.keys(CATALOG.du.opts.trennung.list) }, boden: { type: 'string', enum: Object.keys(CATALOG.du.opts.boden.list) }, ablauf: { type: 'string', enum: Object.keys(CATALOG.du.opts.ablauf.list) }, unterschrank: { type: 'string', enum: Object.keys(CATALOG.wt.opts.unterschrank.list) },
+            gespiegelt: { type: 'boolean' },
+          } } },
+        } } },
+    },
+  },
+};
+const KONZEPT = { t_loesung: 'T-Lösung', wc_nische: 'WC-Nische', raumteiler: 'Raumteiler', nasszone: 'Nasszone', freistehende_wanne: 'Freistehende Wanne', klassisch: 'Klassisch', sonstiges: 'Eigene Idee' };
+async function layouts(cfg, base, wishes, count = 5) {
+  if (!cfg.key) throw new AiError(400, 'Es ist noch kein KI-Schlüssel hinterlegt. Ein Admin kann ihn unter „KI“ eintragen.');
+  if (!base || !Array.isArray(base.pts) || base.pts.length < 3) throw new AiError(400, 'Bitte zuerst den Grundriss zeichnen und bemaßen.');
+  const prompt = describe(base, wishes, cfg.trends, cfg.webTrends) + `\n\nAUFGABE\nSchlage ${count} unterschiedliche Aufteilungen für dieses Bad vor (Materialien sind schon gewählt, es geht nur um die Anordnung). Nutze T-Lösung, WC-Nische, Raumteiler, Nasszone oder freistehende Wanne, wo es der Raum hergibt, und mindestens eine klassische, günstige Variante.`;
+  const messages = [{ role: 'user', content: prompt }];
+  let { use, raw } = await callClaude(cfg, messages, 240000, TOOL_L, SYSTEM_L, 'aufteilungen');
+  let plans = use.input.aufteilungen.map(e => ({ e, plan: normalize(base, e, true) }));
+  const problems = plans.map((p, i) => ({ i, list: conflicts(p.plan) })).filter(p => p.list.length);
+  if (problems.length) {
+    const text = 'Beim Prüfen der echten Flächen sind diese Probleme aufgefallen:\n' + problems.map(p => `Aufteilung ${p.i + 1} „${plans[p.i].e.titel}“:\n- ` + p.list.join('\n- ')).join('\n') +
+      `\n\nBitte korrigiere die Platzierung (Objekte verschieben, kleinere Modelle oder Aufteilung weglassen) und speichere ALLE Aufteilungen erneut.`;
+    try {
+      const fix = await callClaude(cfg, [...messages, { role: 'assistant', content: raw.content }, { role: 'user', content: [{ type: 'tool_result', tool_use_id: use.id, content: text }] }], 200000, TOOL_L, SYSTEM_L, 'aufteilungen');
+      const fixed = fix.use.input.aufteilungen.map(e => ({ e, plan: normalize(base, e, true) }));
+      if (fixed.length) plans = fixed;
+    } catch (e) { /* erste Version behalten */ }
+  }
+  // Vorschläge mit vielen Problemen ans Ende
+  return plans.map(({ e, plan }) => ({ name: String(e.titel || 'Vorschlag').slice(0, 60), konzept: KONZEPT[e.konzept] || 'Eigene Idee', note: String(e.beschreibung || '').slice(0, 600), trend: String(e.trend || '').slice(0, 300), plan, hinweise: conflicts(plan) }))
+    .sort((a, b) => a.hinweise.length - b.hinweise.length);
 }
 
 async function test(cfg) {
@@ -451,4 +586,4 @@ async function testImage(cfg) {
   return { ok: true, models: img };
 }
 
-module.exports = { design, test, refreshTrends, listModels, photo, photoPrompt, testImage, conflicts, normalize, describe, AiError, CATALOG };
+module.exports = { layouts, mounts, design, test, refreshTrends, listModels, photo, photoPrompt, testImage, conflicts, normalize, describe, AiError, CATALOG };

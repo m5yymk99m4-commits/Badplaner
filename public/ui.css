@@ -1,0 +1,92 @@
+/* Badplaner – gemeinsame Gestaltung (wird nach den Seiten-Styles geladen)
+   Ruhig, hell, präzise: weiße Flächen, feine Linien, eine Schrift (Inter),
+   Olivgrün für Hauptaktionen, Beige für normale Knöpfe, Messing als Akzent. */
+:root{
+  --bg:light-dark(#ffffff,#161412);--panel:light-dark(#ffffff,#1f1c19);--soft:light-dark(#f8f6f2,#1b1916);
+  --beige:light-dark(#f3ece1,#2b2621);--beigeb:light-dark(#e6dccd,#3b342c);
+  --ink:light-dark(#1d1a16,#f3eee6);--mute:light-dark(#6f685e,#a99f92);--line:light-dark(#ebe6de,#2f2a24);
+  --pet:light-dark(#46603c,#a9c194);--petbg:light-dark(#eef2e8,#232b1f);--brass:#b0822c;
+  --shadow:0 1px 2px rgba(30,25,18,.05),0 8px 24px -12px rgba(30,25,18,.18);
+  --r:14px;
+}
+body{font-family:Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:-.005em}
+h1,h2,h3,.brand,.sum h1,.facts b,.sum strong,.steps button b,.kiin2 b,.idea b,.stepc h3,.ai h3,.card h3{font-family:Inter,system-ui,sans-serif!important;letter-spacing:-.025em}
+h1{font-weight:750!important}
+h2{font-weight:700!important;font-size:19px!important}
+
+/* Knöpfe */
+.btn{border-radius:12px!important;font-weight:600!important;letter-spacing:-.005em;box-shadow:0 1px 1px rgba(0,0,0,.06),inset 0 1px 0 rgba(255,255,255,.12);transition:transform .08s,filter .15s}
+.btn:active{transform:scale(.98)}
+.btn:hover{filter:brightness(1.05)}
+.btn.ghost,.btn.line{background:var(--beige)!important;border:1px solid var(--beigeb)!important;color:var(--ink)!important;box-shadow:0 1px 0 var(--beigeb)!important}
+.btn.big{width:100%;min-height:52px;font-size:16px}
+
+/* Karten, Listen, Eingaben */
+.card,.item,.idea,.kiv,.kicard{border-radius:var(--r)!important;box-shadow:var(--shadow)!important;border:1px solid var(--line)!important}
+.card{border-color:var(--line)!important}
+input,textarea,select{border:1px solid var(--line)!important;border-radius:12px!important;background:var(--soft)!important}
+input:focus,textarea:focus,select:focus{background:var(--panel)!important;outline:3px solid color-mix(in srgb,var(--pet) 22%,transparent)!important;outline-offset:0!important;border-color:var(--pet)!important}
+.seg button,.cats button,.models button,.chip,.add button,.filters button,.chips button,.kichips button,.pick,.mass label{border-width:1px!important;box-shadow:none!important}
+.seg button.on,.cats button.on,.filters button.on,.chips button.on,.kichips button.on{box-shadow:0 1px 2px rgba(0,0,0,.12)!important}
+.pick{background:var(--panel)!important;border-color:var(--line)!important;box-shadow:var(--shadow)!important}
+.pick.open{border-color:var(--pet)!important}
+.models{background:var(--soft)!important;border-color:var(--line)!important}
+.models button{background:var(--panel)!important;border-color:var(--line)!important}
+.models button:active{background:var(--beige)!important}
+.plan{border-color:var(--line)!important;background:light-dark(#fcfbf8,#1b1916)!important}
+.kipic .plan.thumb{border:0!important;background:transparent!important}
+.kipic{background:var(--soft)!important;border-bottom:1px solid var(--line)}
+.pill{font-weight:600}
+
+/* ---------- App-Leiste (Startseite) ---------- */
+.appbar{position:sticky;top:0;z-index:30;margin:calc(-1*(env(safe-area-inset-top,0px) + 16px)) calc(-1*max(16px,env(safe-area-inset-right,0px))) 18px;padding:calc(env(safe-area-inset-top,0px) + 10px) max(16px,env(safe-area-inset-right,0px)) 10px;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:saturate(1.6) blur(14px);-webkit-backdrop-filter:saturate(1.6) blur(14px);border-bottom:1px solid var(--line)}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font-weight:750;font-size:17px;letter-spacing:-.03em;white-space:nowrap}
+.logo svg{width:32px;height:32px;flex:none}
+.logo small{display:block;font-size:11.5px;font-weight:500;color:var(--mute);letter-spacing:0;margin-top:-2px}
+.topnav2{display:flex;gap:2px}
+.topnav2 a{display:flex;align-items:center;gap:6px;color:var(--mute);text-decoration:none;font-weight:600;font-size:14px;padding:8px 11px;border-radius:10px}
+.topnav2 a svg{width:18px;height:18px}
+.topnav2 a.on{color:var(--ink);background:var(--soft)}
+.tabbar{display:none}
+@media (max-width:640px){
+  .topnav2{display:none}
+  .tabbar{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;position:fixed;left:0;right:0;bottom:0;z-index:40;padding:6px max(8px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 6px) max(8px,env(safe-area-inset-left,0px));
+    background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:saturate(1.6) blur(16px);-webkit-backdrop-filter:saturate(1.6) blur(16px);border-top:1px solid var(--line)}
+  .tabbar a{display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--mute);text-decoration:none;font-size:11px;font-weight:600;padding:4px 0;min-height:48px;justify-content:center}
+  .tabbar a svg{width:24px;height:24px}
+  .tabbar a.on{color:var(--pet)}
+  body.hastabs .wrap{padding-bottom:calc(env(safe-area-inset-bottom,0px) + 96px)!important}
+}
+.pagehead{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:4px 0 14px}
+.pagehead h1{margin:0!important}
+.pagehead p{margin:4px 0 0;color:var(--mute);font-size:14px}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 16px}
+.kpis div{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:12.5px;color:var(--mute);font-weight:500}
+.kpis b{display:block;font-size:22px;color:var(--ink);font-weight:750;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.item{grid-template-columns:44px minmax(0,1fr) auto!important;padding:14px 16px!important}
+.item .av{grid-row:1/3;width:44px;height:44px;border-radius:12px;background:var(--beige);color:var(--pet);display:grid;place-items:center;font-weight:700;font-size:15px;letter-spacing:-.02em}
+.item b{grid-column:2}.item small{grid-column:2!important}.item .pill{grid-column:3!important}
+.loginwrap{min-height:100svh;display:grid;place-items:center}
+.login .logo{margin-bottom:22px}
+
+/* ---------- Planer ---------- */
+.topnav{position:sticky;top:0;z-index:6;margin:calc(-1*(env(safe-area-inset-top,0px) + 14px)) calc(-1*max(5vw,16px,env(safe-area-inset-right,0px))) 10px!important;padding:calc(env(safe-area-inset-top,0px) + 10px) max(5vw,16px,env(safe-area-inset-right,0px)) 10px;
+  background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:saturate(1.6) blur(14px);-webkit-backdrop-filter:saturate(1.6) blur(14px);border-bottom:1px solid var(--line)}
+.topnav a{display:inline-flex;align-items:center;gap:4px;font-weight:600}
+.steps{top:calc(env(safe-area-inset-top,0px) + 56px)!important;background:color-mix(in srgb,var(--bg) 90%,transparent)!important;border:1px solid var(--line)!important;box-shadow:var(--shadow)!important;border-radius:14px!important;padding:4px!important}
+.steps button{font-weight:600!important;font-size:12px!important;color:var(--mute)!important;border-radius:10px!important;min-height:48px!important}
+.steps button b{font-size:13px!important;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--soft);color:var(--mute)!important;margin-bottom:2px;font-weight:700!important}
+.steps button.on{background:var(--soft)!important;color:var(--ink)!important}
+.steps button.on b{background:var(--pet);color:#fff!important}
+.sum{align-items:flex-end!important}
+.sum strong{color:var(--ink)!important;font-weight:750!important}
+.card{border:1px solid var(--pet)!important}
+.cats button{display:inline-flex!important;align-items:center;gap:7px;background:var(--panel)!important;border-color:var(--line)!important}
+.cats button svg{width:18px;height:18px;color:var(--pet)}
+.cats button.on{background:var(--pet)!important;border-color:var(--pet)!important;color:#fff!important}
+.cats button.on svg{color:#fff}
+.cats button.on::after{content:none!important}
+.viewbar{background:color-mix(in srgb,var(--bg) 88%,transparent)!important;border-top:1px solid var(--line)}
+.note{border-left-color:var(--brass)!important;background:var(--soft)!important}
+.btn{white-space:nowrap}
