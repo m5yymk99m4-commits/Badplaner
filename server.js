@@ -66,7 +66,8 @@ try { db.exec(`ALTER TABLE variants ADD COLUMN note TEXT NOT NULL DEFAULT ''`); 
 const DEFAULT_MODEL = 'claude-sonnet-5-5';
 const getSetting = (k, d = '') => { const r = db.prepare('SELECT value FROM settings WHERE key = ?').get(k); return r ? r.value : d; };
 const setSetting = (k, v) => db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(k, v);
-const aiConfig = () => ({ key: getSetting('anthropic_key') || process.env.ANTHROPIC_API_KEY || '', model: getSetting('ai_model') || DEFAULT_MODEL, trends: getSetting('ai_trends'), webTrends: getSetting('web_trends') });
+const aiConfig = () => ({ key: getSetting('anthropic_key') || process.env.ANTHROPIC_API_KEY || '', model: getSetting('ai_model') || DEFAULT_MODEL, trends: getSetting('ai_trends'), webTrends: getSetting('web_trends'),
+  onModel: m => { setSetting('ai_model', m); console.log('KI-Modell automatisch gewechselt zu ' + m); } });
 let trendsBusy = false;
 async function runTrendRefresh() {
   if (trendsBusy) throw new ai.AiError(429, 'Die Trend-Recherche läuft gerade schon.');

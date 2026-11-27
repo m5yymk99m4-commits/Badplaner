@@ -211,26 +211,56 @@ const TOOL = {
 };
 
 class AiError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
-async function callClaude(cfg, messages, timeoutMs = 180000) {
-  const base = (process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com').replace(/\/$/, '');
-  let r;
+const API_VERSION = '2026-10-21';
+const PREFERRED = ['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5'];
+const apiBase = () => (process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com').replace(/\/$/, '');
+const headers = cfg => ({ 'content-type': 'application/json', 'x-api-key': cfg.key, 'anthropic-version': API_VERSION });
+
+// Verständliche Fehlermeldung, immer mit dem Originaltext von Anthropic
+function explain(status, data) {
+  const type = data?.error?.type || '', msg = data?.error?.message || '';
+  const orig = msg ? ` (Anthropic: ${msg})` : ` (Fehlercode ${status})`;
+  if (status === 401 || type === 'authentication_error') return new AiError(502, 'Der KI-Schlüssel ist ungültig. Bitte unter „KI“ einen neuen eintragen.' + orig);
+  if (/credit|balance|billing|purchase/i.test(msg) || type === 'billing_error') return new AiError(402, 'Das KI-Guthaben reicht nicht. Bitte in der Anthropic Console unter Billing Guthaben aufladen.' + orig);
+  if (/web search/i.test(msg)) return new AiError(502, 'Die Websuche ist in deinem Anthropic-Konto ausgeschaltet. Bitte in der Anthropic Console unter Settings → Capabilities einschalten.' + orig);
+  if (status === 403 || type === 'permission_error') return new AiError(502, 'Dein Anthropic-Konto darf das gerade nicht nutzen.' + orig);
+  if (status === 429 || status === 529 || type === 'rate_limit_error' || type === 'overloaded_error') return new AiError(503, 'Die KI ist gerade ausgelastet. Bitte in einer Minute noch einmal versuchen.' + orig);
+  return new AiError(502, 'Die KI hat einen Fehler gemeldet.' + orig);
+}
+const modelProblem = (status, data) => status === 404 || data?.error?.type === 'not_found_error' || (status === 400 && /model/i.test(data?.error?.message || '') && !/credit|balance|billing/i.test(data?.error?.message || ''));
+
+async function listModels(cfg) {
   try {
-    r = await fetch(base + '/v1/messages', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-api-key': cfg.key, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: cfg.model, max_tokens: 16000, system: SYSTEM, tools: [TOOL], tool_choice: { type: 'tool', name: TOOL.name }, messages }),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-  } catch (e) { throw new AiError(504, 'Die KI hat nicht rechtzeitig geantwortet. Bitte noch einmal versuchen.'); }
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) {
-    const msg = data?.error?.message || '';
-    if (r.status === 401) throw new AiError(502, 'Der KI-Schlüssel ist ungültig. Bitte unter „KI“ prüfen.');
-    if (r.status === 404 || /model/i.test(msg)) throw new AiError(502, `Das KI-Modell „${cfg.model}“ ist nicht verfügbar. Bitte unter „KI“ ein anderes eintragen.`);
-    if (r.status === 429 || r.status === 529) throw new AiError(503, 'Die KI ist gerade ausgelastet. Bitte in einer Minute noch einmal versuchen.');
-    if (r.status === 400 && /credit|balance|billing/i.test(msg)) throw new AiError(402, 'Das KI-Guthaben ist aufgebraucht. Bitte bei Anthropic Guthaben aufladen.');
-    throw new AiError(502, 'KI-Fehler: ' + (msg || r.status));
+    const r = await fetch(apiBase() + '/v1/models?limit=100', { headers: headers(cfg), signal: AbortSignal.timeout(20000) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) return [];
+    return (d.data || []).filter(m => !m.lifecycle || m.lifecycle === 'active').map(m => m.id);
+  } catch { return []; }
+}
+function pickModel(ids, avoid) {
+  const ok = ids.filter(id => id !== avoid);
+  return PREFERRED.find(p => ok.includes(p)) || ok.find(id => /sonnet/.test(id)) || ok.find(id => /opus/.test(id)) || ok[0] || null;
+}
+
+// Zentraler Aufruf: bei Modell-Problemen automatisch auf ein verfügbares Modell wechseln
+async function request(cfg, body, timeoutMs, timeoutMsg) {
+  let model = cfg.model;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    let r;
+    try { r = await fetch(apiBase() + '/v1/messages', { method: 'POST', headers: headers(cfg), body: JSON.stringify({ ...body, model }), signal: AbortSignal.timeout(timeoutMs) }); }
+    catch { throw new AiError(504, timeoutMsg || 'Die KI hat nicht rechtzeitig geantwortet. Bitte noch einmal versuchen.'); }
+    const data = await r.json().catch(() => ({}));
+    if (r.ok) { if (model !== cfg.model) { cfg.model = model; if (cfg.onModel) cfg.onModel(model); } return data; }
+    if (attempt === 0 && modelProblem(r.status, data)) {
+      const next = pickModel(await listModels(cfg), model);
+      if (next) { console.warn(`KI-Modell ${model} nicht nutzbar, wechsle zu ${next}: ${data?.error?.message || r.status}`); model = next; continue; }
+    }
+    throw explain(r.status, data);
   }
+}
+
+async function callClaude(cfg, messages, timeoutMs = 180000) {
+  const data = await request(cfg, { max_tokens: 16000, system: SYSTEM, tools: [TOOL], tool_choice: { type: 'tool', name: TOOL.name }, messages }, timeoutMs);
   const use = (data.content || []).find(c => c.type === 'tool_use');
   if (!use || !Array.isArray(use.input?.entwuerfe)) throw new AiError(502, 'Die KI hat keine gültigen Entwürfe geliefert. Bitte noch einmal versuchen.');
   return { use, raw: data };
@@ -258,18 +288,9 @@ async function design(cfg, base, wishes, count = 3) {
 
 async function test(cfg) {
   if (!cfg.key) throw new AiError(400, 'Kein Schlüssel eingetragen.');
-  const base = (process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com').replace(/\/$/, '');
-  let r;
-  try {
-    r = await fetch(base + '/v1/messages', { method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': cfg.key, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: cfg.model, max_tokens: 20, messages: [{ role: 'user', content: 'Antworte nur mit: OK' }] }), signal: AbortSignal.timeout(30000) });
-  } catch { throw new AiError(504, 'Keine Verbindung zur KI.'); }
-  const data = await r.json().catch(() => ({}));
-  if (r.status === 401) throw new AiError(400, 'Der Schlüssel ist ungültig.');
-  if (!r.ok) throw new AiError(400, 'KI-Fehler: ' + (data?.error?.message || r.status));
-  return { ok: true, model: data.model || cfg.model };
+  const data = await request(cfg, { max_tokens: 20, messages: [{ role: 'user', content: 'Antworte nur mit: OK' }] }, 30000, 'Keine Verbindung zur KI.');
+  return { ok: true, model: cfg.model, answer_model: data.model || cfg.model, models: await listModels(cfg) };
 }
-
 
 // ---------- Trend-Recherche im Internet ----------
 const TREND_PROMPT = () => `Recherchiere im Internet die aktuellen Trends für Badgestaltung und Badsanierung in Deutschland (heute ist ${new Date().toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })}).
@@ -286,24 +307,11 @@ Schreibe danach eine kompakte Zusammenfassung auf Deutsch als Stichpunkte, gegli
 Höchstens 25 Stichpunkte, jeder kurz und konkret, so dass ein Badplaner sie direkt umsetzen kann. Keine Einleitung, kein Fazit.`;
 async function refreshTrends(cfg) {
   if (!cfg.key) throw new AiError(400, 'Es ist noch kein KI-Schlüssel hinterlegt.');
-  const base = (process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com').replace(/\/$/, '');
   const messages = [{ role: 'user', content: TREND_PROMPT() }];
   const tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 8, user_location: { type: 'approximate', country: 'DE', timezone: 'Europe/Berlin' } }];
   let content = [];
   for (let round = 0; round < 5; round++) {
-    let r;
-    try {
-      r = await fetch(base + '/v1/messages', { method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': cfg.key, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: cfg.model, max_tokens: 6000, tools, messages }), signal: AbortSignal.timeout(240000) });
-    } catch { throw new AiError(504, 'Die Trend-Recherche hat zu lange gedauert. Bitte später noch einmal.'); }
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      const msg = data?.error?.message || '';
-      if (r.status === 401) throw new AiError(502, 'Der KI-Schlüssel ist ungültig.');
-      if (/web search/i.test(msg)) throw new AiError(502, 'Die Websuche ist in deinem Anthropic-Konto ausgeschaltet. Bitte in der Anthropic Console unter Settings → Capabilities einschalten.');
-      if (r.status === 400 && /credit|balance|billing/i.test(msg)) throw new AiError(402, 'Das KI-Guthaben ist aufgebraucht.');
-      throw new AiError(502, 'KI-Fehler: ' + (msg || r.status));
-    }
+    const data = await request(cfg, { max_tokens: 6000, tools, messages }, 240000, 'Die Trend-Recherche hat zu lange gedauert. Bitte später noch einmal.');
     content = content.concat(data.content || []);
     if (data.stop_reason !== 'pause_turn') break;
     messages.push({ role: 'assistant', content: data.content });
@@ -317,4 +325,4 @@ async function refreshTrends(cfg) {
   return { text: text.slice(0, 6000), sources: [...seen.values()].slice(0, 15) };
 }
 
-module.exports = { design, test, refreshTrends, conflicts, normalize, describe, AiError, CATALOG };
+module.exports = { design, test, refreshTrends, listModels, conflicts, normalize, describe, AiError, CATALOG };
