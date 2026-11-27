@@ -146,7 +146,7 @@ details.all summary{cursor:pointer;font-weight:600;color:var(--pet);min-height:4
 @media(min-width:900px){.hint{max-width:40%}}
 .prow{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
 [hidden]{display:none!important}
-.walkpad{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.walkpad button{min-width:96px;touch-action:none;user-select:none;-webkit-user-select:none}
+.walkpad{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.walkpad button{min-width:96px;user-select:none;-webkit-user-select:none}
 .pano-btn{border:0;background:rgba(255,252,247,.95);color:#2b2620;font:600 15px Inter,sans-serif;padding:13px 16px;border-radius:14px;cursor:pointer;min-height:50px;box-shadow:0 4px 16px rgba(0,0,0,.25)}
 .pano-btn:disabled,.photo-btn:disabled{opacity:.6}
 .gallery .g{position:relative;flex:none}
@@ -539,7 +539,7 @@ function build(){
   room.traverse(o=>{if(o.isMesh){const fx=o.userData.fx||o.material===M.glow;o.castShadow=!fx&&!o.userData.noShadow&&o.material!==M.glass;o.receiveShadow=!fx}});
   floorMesh.castShadow=false;cl.castShadow=true;
   clearTimeout(envT);envT=setTimeout(updateEnv,120);
-  if(photoOn){pmInvalidate();pmApply()}
+  if(photoOn){pmApply();pmMarksBuild();pmInvalidate()}
 }
 let envT=0;
 function updateEnv(){if(renderer.xr.isPresenting||photoOn)return;const hv=helper&&helper.visible;if(helper)helper.visible=false;
@@ -554,7 +554,7 @@ function fitOrbit(){const xs=S.pts.map(p=>p[0]),zs=S.pts.map(p=>p[1]);orb.r=Math
 function walkStart(){const W=walls(),door=S.items.find(i=>i.type==='tu');
   if(door){const w=W[door.wall];walk.x=w.A[0]+w.d[0]*door.t+w.n[0]*.6-center[0];walk.z=w.A[1]+w.d[1]*door.t+w.n[1]*.6-center[1];walk.yaw=Math.atan2(-w.n[0],-w.n[1])}else{walk.x=walk.z=walk.yaw=0}walk.pitch=-.1}
 function placeCam(){if(mode==='orbit'){camera.position.set(orb.r*Math.sin(orb.phi)*Math.sin(orb.theta),1+orb.r*Math.cos(orb.phi),orb.r*Math.sin(orb.phi)*Math.cos(orb.theta));camera.lookAt(0,1,0)}
-  else{camera.position.set(walk.x,1.62,walk.z);camera.rotation.order='YXZ';camera.rotation.set(walk.pitch,walk.yaw,0)}}
+  else{camera.position.set(walk.x,photoOn?1.6:1.62,walk.z);camera.rotation.order='YXZ';camera.rotation.set(walk.pitch,walk.yaw,0)}}
 const cv=renderer.domElement,ptr=new Map();let moved=0;
 cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});moved=0});
 cv.addEventListener('pointermove',e=>{const p=ptr.get(e.pointerId);if(!p)return;
@@ -566,7 +566,7 @@ cv.addEventListener('pointercancel',e=>ptr.delete(e.pointerId));
 cv.addEventListener('wheel',e=>{e.preventDefault();if(mode==='orbit')orb.r=clamp(orb.r*(1+e.deltaY*.001),2,16)},{passive:false});
 const ray=new THREE.Raycaster();
 function tap(e){const r=cv.getBoundingClientRect();ray.setFromCamera({x:(e.clientX-r.left)/r.width*2-1,y:-(e.clientY-r.top)/r.height*2+1},camera);
-  if(mode==='walk'){const h=ray.intersectObject(floorMesh)[0];if(h){if(photoOn)pmGoto(h.point.x,h.point.z);else{walk.x=h.point.x;walk.z=h.point.z}}return}
+  if(mode==='walk'){if(photoOn){if(trans||pend)return;const mh=ray.intersectObjects(pmMarks.children.filter(m=>m.visible))[0];if(mh){const q=panos.find(p=>p.id===mh.object.userData.pid);if(q){pmGoTo(q);return}}}const h=ray.intersectObject(floorMesh)[0];if(h){if(photoOn)pmGoto(h.point.x,h.point.z);else{walk.x=h.point.x;walk.z=h.point.z}}return}
   const hit=ray.intersectObjects(room.children,true).find(h=>{let o=h.object;while(o&&o!==room){if(o.userData.id)return true;o=o.parent}return false});
   if(hit){let o=hit.object;while(!o.userData.id)o=o.parent;sel=o.userData.id;tab='obj';build();render();close3d();setTimeout(()=>{const c=document.querySelector('#pane .card');if(c)c.scrollIntoView({behavior:'smooth',block:'center'})},60)}else{sel=null;build();render()}}
 function size(){const w=stage.clientWidth,h=stage.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.fov=w<h?72:58;camera.updateProjectionMatrix()}
@@ -883,21 +883,24 @@ function segCross(p,q,a,b){const cr=(x1,y1,x2,y2)=>x1*y2-y1*x2,r=[q[0]-p[0],q[1]
 function walkBlocked(p,q){return walls().some(w=>segCross(p,q,w.A,w.B))||S.items.filter(isFree).some(f=>segCross(p,q,f.a,f.b))}
 function insideRoom(x,z){let c=false;S.pts.forEach((a,i)=>{const b=S.pts[(i+1)%S.pts.length];if((a[1]>z)!==(b[1]>z)&&x<(b[0]-a[0])*(z-a[1])/(b[1]-a[1])+a[0])c=!c});return c}
 function inObstacle(x,z){return S.items.some(it=>{if(isFree(it)||!FLOOR_TYPES.includes(it.type)||it.type==='du'||(it.type==='mo'&&it.v==='regal'))return false;const w=mountOf(it),D=dims(it),o=it.off||0,rx=x-w.A[0],rz=z-w.A[1],u=rx*w.d[0]+rz*w.d[1],v=rx*w.n[0]+rz*w.n[1];return u>it.t-D.w/2-.15&&u<it.t+D.w/2+.15&&v>o-.15&&v<o+D.d+.15})}
-function tourSpots(maxN){const W=walls(),xs=S.pts.map(p=>p[0]),zs=S.pts.map(p=>p[1]),cand=[];
-  const okPt=(x,z)=>insideRoom(x,z)&&W.every(w=>segDist([x,z],w.A,w.B)>=.4)&&S.items.filter(isFree).every(f=>segDist([x,z],f.a,f.b)>=.35)&&!inObstacle(x,z);
-  for(let x=Math.min(...xs)+.4;x<=Math.max(...xs)-.4+1e-9;x+=.15)for(let z=Math.min(...zs)+.4;z<=Math.max(...zs)-.4+1e-9;z+=.15)if(okPt(x,z))cand.push([+x.toFixed(2),+z.toFixed(2)]);
+function tourSpots(maxN){const W=walls(),xs=S.pts.map(p=>p[0]),zs=S.pts.map(p=>p[1]),cand=[],FW=S.items.filter(isFree);
+  const okPt=(x,z)=>insideRoom(x,z)&&W.every(w=>segDist([x,z],w.A,w.B)>=.3)&&FW.every(f=>segDist([x,z],f.a,f.b)>=.28)&&!inObstacle(x,z);
+  for(let x=Math.min(...xs)+.3;x<=Math.max(...xs)-.3+1e-9;x+=.15)for(let z=Math.min(...zs)+.3;z<=Math.max(...zs)-.3+1e-9;z+=.15)if(okPt(x,z))cand.push([+x.toFixed(2),+z.toFixed(2)]);
   if(!cand.length)return[];
-  const door=S.items.find(i=>i.type==='tu');let start=cand[0];
+  const door=S.items.find(i=>i.type==='tu');let start=cand[Math.floor(cand.length/2)];
   if(door){const w=W[door.wall],dp=[w.A[0]+w.d[0]*door.t+w.n[0]*.6,w.A[1]+w.d[1]*door.t+w.n[1]*.6];start=cand.reduce((b,c)=>Math.hypot(c[0]-dp[0],c[1]-dp[1])<Math.hypot(b[0]-dp[0],b[1]-dp[1])?c:b)}
-  const chosen=[start],md=c=>Math.min(...chosen.map(q=>Math.hypot(q[0]-c[0],q[1]-c[1])));
-  while(chosen.length<maxN){let best=null,bd=0;cand.forEach(c=>{const d=md(c);if(d>bd){bd=d;best=c}});if(!best||bd<.85)break;chosen.push(best)}
+  const chosen=[start],vis=(a,b)=>!walkBlocked(a,b);
+  // Abstand zum nächsten gewählten Standpunkt, der diese Stelle auch SIEHT – unsichtbare Ecken zählen als weit weg
+  const md=c=>Math.min(...chosen.map(q=>vis(q,c)?Math.hypot(q[0]-c[0],q[1]-c[1]):9));
+  // neue Standpunkte müssen von einem vorhandenen aus sichtbar sein, damit man hingehen kann
+  while(chosen.length<maxN){let best=null,bd=0;cand.forEach(c=>{if(!chosen.some(q=>vis(q,c)&&Math.hypot(q[0]-c[0],q[1]-c[1])<2.6))return;const d=Math.min(md(c),2.2);if(d>bd){bd=d;best=c}});if(!best||bd<.75)break;chosen.push(best)}
   const cx=chosen.reduce((s2,c)=>s2+c[0],0)/chosen.length,cz=chosen.reduce((s2,c)=>s2+c[1],0)/chosen.length;
   return chosen.map(c=>({x:c[0],z:c[1],yaw:Math.hypot(cx-c[0],cz-c[1])<.2?0:Math.atan2(-(cx-c[0]),-(cz-c[1]))}))}
 const atb=document.getElementById('autotour');if(!VID)atb.hidden=true;let tourBusy=false;
 atb.onclick=async()=>{if(tourBusy)return;await loadPhotos();
-  const spots=tourSpots(8).filter(sp=>!panos.some(q=>q.x!=null&&Math.hypot(q.x-sp.x,q.z-sp.z)<.6));
+  const spots=tourSpots(16).filter(sp=>!panos.some(q=>q.x!=null&&Math.hypot(q.x-sp.x,q.z-sp.z)<.5));
   if(!spots.length){showMsg(panos.length?'Der Raum ist schon komplett abgedeckt. „Rundgang ansehen“ antippen.':'Keine freien Standpunkte gefunden.',!panos.length);return}
-  if(!atb.dataset.sure){atb.dataset.sure=1;atb.textContent=`Ja, ${spots.length} Standpunkte erstellen`;showMsg(`Die App verteilt ${spots.length} Standpunkte über das ganze Bad (auch hinter Trennwänden) und macht von jedem ein 360°-Foto. Das dauert einige Minuten und kostet ${spots.length} Bild-KI-Fotos. Zum Starten noch einmal tippen.`);setTimeout(()=>{if(!tourBusy){delete atb.dataset.sure;atb.textContent='Ganzer Rundgang (automatisch)'}},9000);return}
+  if(!atb.dataset.sure){atb.dataset.sure=1;atb.textContent=`Ja, ${spots.length} Standpunkte erstellen`;showMsg(`Die App verteilt ${spots.length} Standpunkte über das ganze Bad (auch hinter Trennwänden) und macht von jedem ein 360°-Foto. Das dauert einige Minuten und kostet ${spots.length} Bild-KI-Fotos (bei OpenAI grob 0,10–0,25 € pro Foto). Zum Starten noch einmal tippen.`);setTimeout(()=>{if(!tourBusy){delete atb.dataset.sure;atb.textContent='Ganzer Rundgang (automatisch)'}},9000);return}
   delete atb.dataset.sure;tourBusy=true;atb.disabled=mk.disabled=mkp.disabled=true;atb.textContent='Rundgang wird erstellt …';
   const saved={x:walk.x,z:walk.z,yaw:walk.yaw,m:mode};let done=0,fail=0,next=0,lastErr='';const t0=Date.now();
   const tick=()=>showMsg(`Rundgang: ${done} von ${spots.length} Standpunkten fertig${fail?`, ${fail} fehlgeschlagen`:''} · ${Math.round((Date.now()-t0)/1000)} s. Bitte die Seite offen lassen.`);tick();const iv=setInterval(tick,1000);
@@ -988,17 +991,18 @@ varying vec3 vW;
 float unpackD(vec4 v){return dot(v,vec4(1.0,1.0/255.0,1.0/65025.0,1.0/16581375.0));}
 vec2 eq(vec3 d){return vec2(atan(d.x,-d.z)/6.28318530718+0.5,asin(clamp(d.y,-1.0,1.0))/3.14159265359+0.5);}
 void acc(sampler2D t,samplerCube c,vec3 p,float a,inout vec3 col,inout float ws){
-  if(a<0.5)return;vec3 r=vW-p;float dist=max(length(r),0.0001);vec3 d=r/dist;
+  if(a<0.0001)return;vec3 r=vW-p;float dist=max(length(r),0.0001);vec3 d=r/dist;
   float stored=unpackD(textureCube(c,d))*20.0;if(dist>stored+0.05+0.03*dist)return;
-  float dc=distance(cameraPosition,p);float w=1.0/(dc*dc*dc*dc+0.0005);col+=texture2D(t,eq(d)).rgb*w;ws+=w;}
+  col+=texture2D(t,eq(d)).rgb*a;ws+=a;}
 void main(){vec3 col=vec3(0.0);float ws=0.0;
   acc(t0,c0,p0,act.x,col,ws);acc(t1,c1,p1,act.y,col,ws);acc(t2,c2,p2,act.z,col,ws);acc(t3,c3,p3,act.w,col,ws);
   if(ws>0.0){gl_FragColor=vec4(col/ws,1.0);return;}
-  if(act.x>0.5)col=texture2D(t0,eq(normalize(vW-p0))).rgb;else if(act.y>0.5)col=texture2D(t1,eq(normalize(vW-p1))).rgb;else col=vec3(0.55,0.53,0.5);
-  gl_FragColor=vec4(col*0.92,1.0);}`;
+  if(act.x+act.y<0.0001){gl_FragColor=vec4(0.55,0.53,0.5,1.0);return;}
+  col=act.x>=act.y?texture2D(t0,eq(normalize(vW-p0))).rgb:texture2D(t1,eq(normalize(vW-p1))).rgb;
+  gl_FragColor=vec4(col,1.0);}`;
 const DIST_FS='precision highp float;uniform vec3 P;varying vec3 vW;vec4 packD(float v){vec4 e=vec4(1.0,255.0,65025.0,16581375.0)*v;e=fract(e);e-=e.yzww*vec4(1.0/255.0,1.0/255.0,1.0/255.0,0.0);return e;}void main(){gl_FragColor=packD(clamp(distance(vW,P)/20.0,0.0,0.999));}';
-let photoOn=false,pmMat=null,distMat=null,pickKey='',lastPick=0,lastT=performance.now(),glide=null,hold=0,holdT=0;
-const dCache=new Map(),tCache=new Map();
+let photoOn=false,pmMat=null,distMat=null,pmCur=null,trans=null,pend=null,pmRoute=[];
+const dCache=new Map(),tCache=new Map(),pmMarks=new THREE.Group();scene.add(pmMarks);
 const dummyT=new THREE.DataTexture(new Uint8Array([140,135,128,255]),1,1,THREE.RGBAFormat);dummyT.needsUpdate=true;
 const dummyC=new THREE.WebGLCubeRenderTarget(4);
 const fwBtn=document.getElementById('freewalk'),wpad=document.getElementById('walkpad'),prow=document.querySelector('#stage .prow');
@@ -1007,56 +1011,68 @@ function pmInit(){if(pmMat)return;const u={act:{value:new THREE.Vector4()}};
   pmMat=new THREE.ShaderMaterial({uniforms:u,vertexShader:PROJ_VS,fragmentShader:PROJ_FS,side:THREE.DoubleSide});
   distMat=new THREE.ShaderMaterial({uniforms:{P:{value:new THREE.Vector3()}},vertexShader:PROJ_VS,fragmentShader:DIST_FS,side:THREE.DoubleSide})}
 function panoPos(q){return world.localToWorld(new THREE.Vector3(q.x-center[0],1.6,q.z-center[1]))}
-function pmInvalidate(){dCache.forEach(r=>r.dispose());dCache.clear();pickKey=''}
-// Abstands-Würfelkarte: wie weit sieht man von diesem Standpunkt in jede Richtung?
+function pmInvalidate(){dCache.forEach(r=>r.dispose());dCache.clear();if(photoOn&&pmCur&&!trans)pmShow(pmCur)}
+// Abstands-Würfelkarte: wie weit sieht man von diesem Standpunkt in jede Richtung? (für Übergänge)
 function distCube(q){let rt=dCache.get(q.id);if(rt)return rt;
   rt=new THREE.WebGLCubeRenderTarget(256,{minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,generateMipmaps:false});
   const cc=new THREE.CubeCamera(.02,30,rt),P=panoPos(q);cc.position.copy(P);cc.updateMatrixWorld(true);distMat.uniforms.P.value.copy(P);
-  const hid=[];scene.traverse(o=>{if(o.visible&&(o.isLine||(o.isMesh&&(o.userData.fx||o.userData.pmHide)))){hid.push(o);o.visible=false}});
+  const hid=[];scene.traverse(o=>{if(o.visible&&(o.isLine||o===pmMarks||(o.isMesh&&(o.userData.fx||o.userData.pmHide)))){hid.push(o);o.visible=false}});
   const bg=scene.background,tm=renderer.toneMapping;scene.background=new THREE.Color(1,1,1);scene.overrideMaterial=distMat;renderer.toneMapping=THREE.NoToneMapping;
   try{cc.update(renderer,scene)}finally{scene.background=bg;scene.overrideMaterial=null;renderer.toneMapping=tm;hid.forEach(o=>o.visible=true)}
   dCache.set(q.id,rt);return rt}
 function panoTex(q){let e=tCache.get(q.id);if(e)return e;e={t:null};tCache.set(q.id,e);
-  loader.load('/api/photos/'+q.id,t=>{t.minFilter=THREE.LinearFilter;t.magFilter=THREE.LinearFilter;t.generateMipmaps=false;t.wrapS=THREE.RepeatWrapping;e.t=t;pickKey=''},undefined,()=>{tCache.delete(q.id)});return e}
-// die 4 nächsten Standpunkte einsetzen
-function pmPick(){const cx=walk.x+center[0],cz=walk.z+center[1];
-  const ents=panos.filter(q=>q.x!=null).map(q=>({q,d:Math.hypot(q.x-cx,q.z-cz)})).sort((a,b)=>a.d-b.d).slice(0,4).map(o=>({q:o.q,e:panoTex(o.q)}));
-  const key=ents.map(o=>o.q.id+(o.e.t?'+':'-')).join(',');if(key===pickKey)return;pickKey=key;
-  const u=pmMat.uniforms,a=[0,0,0,0];
-  ents.forEach((o,i)=>{if(!o.e.t)return;u['t'+i].value=o.e.t;u['c'+i].value=distCube(o.q).texture;u['p'+i].value.copy(panoPos(o.q));a[i]=1});
-  for(let i=0;i<4;i++)if(!a[i]){u['t'+i].value=dummyT;u['c'+i].value=dummyC.texture}
-  u.act.value.set(a[0],a[1],a[2],a[3])}
+  loader.load('/api/photos/'+q.id,t=>{t.minFilter=THREE.LinearFilter;t.magFilter=THREE.LinearFilter;t.generateMipmaps=false;t.wrapS=THREE.RepeatWrapping;e.t=t},undefined,()=>{tCache.delete(q.id)});return e}
+function slot(i,q,w){const u=pmMat.uniforms;u['t'+i].value=panoTex(q).t||dummyT;u['c'+i].value=distCube(q).texture;u['p'+i].value.copy(panoPos(q));u.act.value.setComponent(i,w)}
+// am Standpunkt: nur dieses eine Foto – exakt wie aufgenommen, ohne Verzerrung
+function pmShow(q){slot(0,q,1);pmMat.uniforms.act.value.set(1,0,0,0);pmMat.uniforms.t1.value=dummyT}
+const okPanos=()=>panos.filter(q=>q.x!=null);
+const sees=(a,b)=>!walkBlocked([a.x,a.z],[b.x,b.z]);
+// kürzester Weg über Standpunkte, die sich gegenseitig sehen (so kommt man auch hinter Vorwände)
+function route(from,to){const P=okPanos(),dist=new Map(P.map(q=>[q.id,Infinity])),prev=new Map(),todo=new Set(P.map(q=>q.id));dist.set(from.id,0);
+  while(todo.size){let u=null;todo.forEach(id=>{if(u==null||dist.get(id)<dist.get(u))u=id});if(dist.get(u)===Infinity)break;todo.delete(u);if(u===to.id)break;const qu=P.find(q=>q.id===u);
+    P.forEach(v=>{if(!todo.has(v.id))return;const d=Math.hypot(v.x-qu.x,v.z-qu.z);if(d>3.2||!sees(qu,v))return;const nd=dist.get(u)+d+.3;if(nd<dist.get(v.id)){dist.set(v.id,nd);prev.set(v.id,u)}})}
+  if(!prev.has(to.id))return [];const r=[];let c=to.id;while(c!==from.id){r.unshift(P.find(q=>q.id===c));c=prev.get(c)}return r}
+function pmMarksBuild(){pmMarks.children.slice().forEach(m=>{pmMarks.remove(m);m.geometry.dispose()});
+  const mat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.8,depthWrite:false});
+  okPanos().forEach(q=>{const g=new THREE.Mesh(new THREE.RingGeometry(.13,.2,40),mat);g.rotation.x=-Math.PI/2;g.position.set(q.x-center[0],.015,q.z-center[1]);g.userData.pid=q.id;g.renderOrder=3;pmMarks.add(g)});pmMarksVis()}
+function pmMarksVis(){pmMarks.children.forEach(m=>{const q=panos.find(p=>p.id===m.userData.pid);m.visible=!!(photoOn&&!trans&&q&&pmCur&&q.id!==pmCur.id&&Math.hypot(q.x-pmCur.x,q.z-pmCur.z)<4.5&&sees(pmCur,q))})}
 function pmApply(){room.traverse(o=>{if(!o.isMesh||o.userData.pmOrig!==undefined)return;const m=o.userData.pmOrig=o.material;
   if(o.userData.fx||(m&&m.transparent)){if(o.visible){o.visible=false;o.userData.pmHide=1}}else o.material=pmMat});if(helper)helper.visible=false}
 function pmRestore(){room.traverse(o=>{if(!o.isMesh)return;if(o.userData.pmOrig!==undefined){o.material=o.userData.pmOrig;delete o.userData.pmOrig}if(o.userData.pmHide){o.visible=true;delete o.userData.pmHide}});if(helper)helper.visible=true}
-function pmUI(on){prow.hidden=on;gal.hidden=on;wpad.hidden=!on;hint.textContent=on?'Ziehen = umschauen · Boden antippen = hingehen · ▲ halten = gehen':'Ziehen = umschauen · Boden antippen = hingehen'}
-async function pmStart(q,look){if(!VID)return;await loadPhotos();const ok=panos.filter(p=>p.x!=null);
+function pmUI(on){prow.hidden=on;gal.hidden=on;wpad.hidden=!on;hint.textContent=on?'Ziehen = umschauen · weißen Punkt am Boden antippen = hingehen':'Ziehen = umschauen · Boden antippen = hingehen'}
+async function pmStart(q,look){if(!VID)return;await loadPhotos();const ok=okPanos();
   if(!ok.length){showMsg('Zuerst 360°-Fotos aufnehmen – am besten mit „Ganzer Rundgang (automatisch)“.',true);return}
   pmInit();if(!stageEl.classList.contains('open'))open3d();if(mode!=='walk')setMode('walk');
-  const s=(q&&q.x!=null&&ok.find(p=>p.id===q.id))||ok[0];walk.x=s.x-center[0];walk.z=s.z-center[1];
-  if(look){walk.yaw=look.yaw;walk.pitch=clamp(look.pitch,-1,1)}else if(s.yaw!=null){walk.yaw=s.yaw;walk.pitch=-.05}
-  photoOn=true;glide=null;hold=0;renderer.shadowMap.autoUpdate=false;pmInvalidate();pmApply();pmUI(true);pmPick();
-  showMsg(ok.length<4?`Beta: ${ok.length} Standpunkt${ok.length>1?'e':''}. Mit mehr 360°-Standpunkten wird es deutlich besser („Ganzer Rundgang (automatisch)“).`:'')}
-function pmStop(){if(!photoOn)return;photoOn=false;glide=null;hold=0;pmRestore();pmUI(false);renderer.shadowMap.autoUpdate=true;renderer.shadowMap.needsUpdate=true;showMsg('');updateEnv()}
-function segDist(p,a,b){const vx=b[0]-a[0],vz=b[1]-a[1],l=vx*vx+vz*vz||1e-9,t=clamp(((p[0]-a[0])*vx+(p[1]-a[1])*vz)/l,0,1);return Math.hypot(p[0]-a[0]-t*vx,p[1]-a[1]-t*vz)}
-// darf man von a nach b gehen? (Raumkoordinaten)
-function canStep(a,b){if(!insideRoom(b[0],b[1])||walkBlocked(a,b))return false;
-  const segs=walls().map(w=>[w.A,w.B]).concat(S.items.filter(isFree).map(f=>[f.a,f.b]));
-  const near=p=>Math.min(...segs.map(s=>segDist(p,s[0],s[1])));if(near(b)<.18&&near(b)<near(a))return false;
-  return !(inObstacle(b[0],b[1])&&!inObstacle(a[0],a[1]))}
-function pmGoto(x,z){const a=[walk.x+center[0],walk.z+center[1]],b=[x+center[0],z+center[1]];
-  if(walkBlocked(a,b)){showMsg('Da ist eine Wand dazwischen – geh außen herum.');setTimeout(()=>showMsg(''),2200);return}glide={x,z}}
-function pmStep(){const now=performance.now(),dt=Math.min(.05,(now-lastT)/1000);lastT=now;if(!photoOn)return;let mx=0,mz=0;
-  if(hold){const s=hold*1.1*dt;mx=-Math.sin(walk.yaw)*s;mz=-Math.cos(walk.yaw)*s}
-  else if(glide){const dx=glide.x-walk.x,dz=glide.z-walk.z,d=Math.hypot(dx,dz);if(d<.01)glide=null;else{const s=Math.min(d,1.3*dt);mx=dx/d*s;mz=dz/d*s}}
-  if(mx||mz){const a=[walk.x+center[0],walk.z+center[1]],b=[a[0]+mx,a[1]+mz];if(canStep(a,b)){walk.x+=mx;walk.z+=mz}else glide=null}
-  if(now-lastPick>200){lastPick=now;pmPick()}}
+  const cx=walk.x+center[0],cz=walk.z+center[1];const s=(q&&ok.find(p=>p.id===q.id))||ok.reduce((b,c)=>Math.hypot(c.x-cx,c.z-cz)<Math.hypot(b.x-cx,b.z-cz)?c:b);
+  walk.x=s.x-center[0];walk.z=s.z-center[1];if(look){walk.yaw=look.yaw;walk.pitch=clamp(look.pitch,-1,1)}else if(q&&s.yaw!=null){walk.yaw=s.yaw;walk.pitch=-.05}
+  photoOn=true;trans=null;pend=null;pmRoute=[];pmCur=s;renderer.shadowMap.autoUpdate=false;dCache.forEach(r=>r.dispose());dCache.clear();pmApply();pmShow(s);pmMarksBuild();pmUI(true);
+  ok.filter(p=>p!==s&&Math.hypot(p.x-s.x,p.z-s.z)<3).forEach(panoTex);
+  showMsg(ok.length<6?`Nur ${ok.length} Standpunkt${ok.length>1?'e':''} – mit „Ganzer Rundgang (automatisch)“ kommen weitere dazu, auch hinter Vorwänden.`:'')}
+function pmStop(){if(!photoOn)return;photoOn=false;trans=null;pend=null;pmRoute=[];pmRestore();pmMarksVis();pmUI(false);renderer.shadowMap.autoUpdate=true;renderer.shadowMap.needsUpdate=true;showMsg('');updateEnv()}
+function pmGoTo(target){if(!pmCur||target.id===pmCur.id)return;const r=sees(pmCur,target)&&Math.hypot(target.x-pmCur.x,target.z-pmCur.z)<3.2?[target]:route(pmCur,target);
+  if(!r.length){showMsg('Dorthin führt kein Weg über die Standpunkte. Mehr Standpunkte aufnehmen hilft.');setTimeout(()=>showMsg(''),2500);return}
+  pmRoute=r;pmNext()}
+function pmNext(){const b=pmRoute.shift();if(!b)return;panoTex(b);pend=b}
+function pmGoto(x,z){// Boden angetippt: nächsten Standpunkt zum angetippten Punkt nehmen
+  const rx=x+center[0],rz=z+center[1],ok=okPanos().filter(q=>q.id!==pmCur.id);if(!ok.length)return;
+  const vis=ok.filter(q=>sees(pmCur,q)),pool=vis.length?vis:ok,d=q=>Math.hypot(q.x-rx,q.z-rz);let best=pool.reduce((b,c)=>d(c)<d(b)?c:b);
+  const any=ok.reduce((b,c)=>d(c)<d(b)?c:b);if(d(any)<d(best)-.4)best=any;pmGoTo(best)}
+function pmDir(sign){if(!pmCur)return;const fy=walk.yaw+(sign<0?Math.PI:0),fx=-Math.sin(fy),fz=-Math.cos(fy);let best=null;
+  okPanos().forEach(q=>{if(q.id===pmCur.id||!sees(pmCur,q))return;const dx=q.x-pmCur.x,dz=q.z-pmCur.z,dist=Math.hypot(dx,dz);if(dist<.15||dist>3.2)return;
+    const cos=(dx*fx+dz*fz)/dist;if(cos<.45)return;const sc=dist*(2.2-cos);if(!best||sc<best.sc)best={q,sc}});
+  if(best)pmGoTo(best.q);else{showMsg(sign>0?'In diese Richtung gibt es keinen Standpunkt. Dreh dich etwas oder tippe einen Punkt am Boden an.':'Hinter dir gibt es keinen Standpunkt.');setTimeout(()=>showMsg(''),2500)}}
+const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+function pmStep(){if(!photoOn)return;const now=performance.now();
+  if(!trans&&pmCur&&pmMat.uniforms.t0.value===dummyT&&panoTex(pmCur).t)pmShow(pmCur);
+  if(pend&&!trans){const e=panoTex(pend);if(e.t){const a=pmCur,b=pend;pend=null;const d=Math.hypot(b.x-a.x,b.z-a.z);
+      slot(0,a,1);slot(1,b,0);trans={a,b,t0:now,dur:clamp(450+d*380,500,1300)};pmMarksVis()}}
+  if(trans){const t=clamp((now-trans.t0)/trans.dur,0,1),e=ease(t),{a,b}=trans;
+    walk.x=a.x+(b.x-a.x)*e-center[0];walk.z=a.z+(b.z-a.z)*e-center[1];const w=clamp((e-.15)/.7,0,1);pmMat.uniforms.act.value.set(1-w,w,0,0);
+    if(t>=1){trans=null;pmCur=b;walk.x=b.x-center[0];walk.z=b.z-center[1];pmShow(b);
+      okPanos().filter(p=>p!==b&&Math.hypot(p.x-b.x,p.z-b.z)<3).forEach(panoTex);if(pmRoute.length)pmNext();else pmMarksVis()}}}
 fwBtn.onclick=()=>pmStart(null);
 document.getElementById('wexit').onclick=()=>pmStop();
-[['wfwd',1],['wback',-1]].forEach(([id,dir])=>{const b=document.getElementById(id);
-  b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);glide=null;hold=dir;holdT=performance.now()});
-  const up=()=>{if(!hold)return;const short=performance.now()-holdT<220;hold=0;if(short)glide={x:walk.x-Math.sin(walk.yaw)*.5*dir,z:walk.z-Math.cos(walk.yaw)*.5*dir}};
-  b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('contextmenu',e=>e.preventDefault())});
+document.getElementById('wfwd').onclick=()=>pmDir(1);document.getElementById('wback').onclick=()=>pmDir(-1);
 document.getElementById('pfree').onclick=()=>{const q=pCur,look={yaw:pLook.yaw,pitch:pLook.pitch};panoEl.classList.remove('open');pSensorOff();pmStart(q,look)};
 
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(panoEl.classList.contains('open')){panoEl.classList.remove('open');pSensorOff()}else if(viewer.classList.contains('open'))viewer.classList.remove('open');else if(stageEl.classList.contains('open'))close3d()}});

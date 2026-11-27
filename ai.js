@@ -417,10 +417,15 @@ async function photo(cfg, dataUrl, plan, kind) {
   const base = (process.env.OPENAI_BASE_URL || 'https://api.openai.com').replace(/\/$/, '');
   const body = { images: [{ image_url: dataUrl }], prompt: photoPrompt(plan, kind), size: kind === 'pano' ? '2048x1024' : '1536x1024', quality: cfg.imageQuality || 'high', output_format: 'jpeg', n: 1 };
   if (cfg.imageModel) body.model = cfg.imageModel;
-  let r;
-  try { r = await fetch(base + '/v1/images/edits', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + cfg.openaiKey }, body: JSON.stringify(body), signal: AbortSignal.timeout(300000) }); }
+  // möglichst nah an der Vorlage bleiben (Kanten und Objekte nicht verschieben); Modelle ohne diese Option bekommen die Anfrage ohne
+  body.input_fidelity = 'high';
+  const send = () => fetch(base + '/v1/images/edits', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + cfg.openaiKey }, body: JSON.stringify(body), signal: AbortSignal.timeout(300000) });
+  let r, data;
+  try {
+    r = await send(); data = await r.json().catch(() => ({}));
+    if (!r.ok && /input_fidelity/i.test(data?.error?.message || '') ) { delete body.input_fidelity; r = await send(); data = await r.json().catch(() => ({})); }
+  }
   catch { throw new AiError(504, 'Die Bild-KI hat nicht rechtzeitig geantwortet. Bitte noch einmal versuchen.'); }
-  const data = await r.json().catch(() => ({}));
   if (!r.ok) {
     const msg = data?.error?.message || '', code = data?.error?.code || '';
     const orig = msg ? ` (OpenAI: ${msg})` : ` (Fehlercode ${r.status})`;
