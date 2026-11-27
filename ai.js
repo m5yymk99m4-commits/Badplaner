@@ -117,7 +117,7 @@ function normalize(base, e) {
 // ---------- Prompt ----------
 const SYSTEM = `Du bist ein erfahrener Badplaner in Deutschland. Du planst Bäder für die Sanierung beim Endkunden.
 Du bekommst einen vermessenen Grundriss, feste Türen und Fenster, die Kundenwünsche und einen Produktkatalog.
-Erstelle daraus unterschiedliche, wirklich baubare Entwürfe und speichere sie mit dem Werkzeug "entwuerfe_speichern".
+Erstelle daraus unterschiedliche, wirklich baubare Entwürfe und speichere sie IMMER mit dem Werkzeug "entwuerfe_speichern" (alle Entwürfe in einem einzigen Aufruf). Schreib keinen Text außerhalb des Werkzeugs.
 
 Platzierungsregeln (sehr wichtig):
 - Jedes Objekt steht an genau einer Wand. "wand" ist die Wandnummer (W1 = 1). "abstand" ist der Abstand der OBJEKTMITTE vom Wandanfang in Metern.
@@ -259,11 +259,18 @@ async function request(cfg, body, timeoutMs, timeoutMsg) {
   }
 }
 
-async function callClaude(cfg, messages, timeoutMs = 180000) {
-  const data = await request(cfg, { max_tokens: 16000, system: SYSTEM, tools: [TOOL], tool_choice: { type: 'tool', name: TOOL.name }, messages }, timeoutMs);
-  const use = (data.content || []).find(c => c.type === 'tool_use');
-  if (!use || !Array.isArray(use.input?.entwuerfe)) throw new AiError(502, 'Die KI hat keine gültigen Entwürfe geliefert. Bitte noch einmal versuchen.');
-  return { use, raw: data };
+async function callClaude(cfg, messages, timeoutMs = 240000) {
+  // Kein erzwungenes Werkzeug (nicht jedes Modell unterstützt das): KI bekommt es angeboten und soll es nutzen.
+  const msgs = [...messages];
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const data = await request(cfg, { max_tokens: 32000, system: SYSTEM, tools: [TOOL], tool_choice: { type: 'auto' }, messages: msgs }, timeoutMs);
+    const use = (data.content || []).find(c => c.type === 'tool_use' && c.name === TOOL.name);
+    if (use && Array.isArray(use.input?.entwuerfe) && use.input.entwuerfe.length) return { use, raw: data };
+    if (data.stop_reason === 'max_tokens') throw new AiError(502, 'Die Antwort der KI war zu lang. Bitte weniger Ideen auf einmal erstellen.');
+    msgs.push({ role: 'assistant', content: data.content && data.content.length ? data.content : [{ type: 'text', text: '…' }] });
+    msgs.push({ role: 'user', content: 'Bitte speichere die Entwürfe jetzt mit dem Werkzeug „entwuerfe_speichern“. Keine weiteren Erklärungen.' });
+  }
+  throw new AiError(502, 'Die KI hat keine gültigen Entwürfe geliefert. Bitte noch einmal versuchen.');
 }
 
 async function design(cfg, base, wishes, count = 3) {
@@ -278,7 +285,7 @@ async function design(cfg, base, wishes, count = 3) {
     const text = 'Beim Prüfen sind diese Probleme aufgefallen:\n' + problems.map(p => `Entwurf ${p.i + 1} „${plans[p.i].e.titel}“:\n- ` + p.list.join('\n- ')).join('\n') +
       `\n\nBitte korrigiere die Platzierung und speichere ALLE ${plans.length} Entwürfe erneut (Stil und Materialien beibehalten).`;
     try {
-      const fix = await callClaude(cfg, [...messages, { role: 'assistant', content: raw.content }, { role: 'user', content: [{ type: 'tool_result', tool_use_id: use.id, content: text }] }], 150000);
+      const fix = await callClaude(cfg, [...messages, { role: 'assistant', content: raw.content }, { role: 'user', content: [{ type: 'tool_result', tool_use_id: use.id, content: text }] }], 200000);
       const fixed = fix.use.input.entwuerfe.map(e => ({ e, plan: normalize(base, e) }));
       if (fixed.length) plans = fixed;
     } catch (e) { /* erste Version behalten */ }
