@@ -151,7 +151,7 @@ function planThumb(pl){
   const P=pl.pts,xs=P.map(p=>p[0]),zs=P.map(p=>p[1]),pad=.25,x0=Math.min(...xs)-pad,z0=Math.min(...zs)-pad,vw=Math.max(...xs)-x0+pad,vh=Math.max(...zs)-z0+pad;
   const W=P.map((A,i)=>{const B=P[(i+1)%P.length],dx=B[0]-A[0],dz=B[1]-A[1],l=Math.hypot(dx,dz)||.001;return{A,d:[dx/l,dz/l],n:[-dz/l,dx/l],l}});
   const wc=WALLC[pl.wall]||'#3b4544';let s=`<polygon points="${P.map(p=>p.join(',')).join(' ')}" fill="${FLOORC[pl.floor]||'#eee'}" stroke="${wc}" stroke-width=".09" stroke-linejoin="miter"/>`;
-  (pl.items||[]).forEach(it=>{const w=W[it.wall];if(!w)return;const f=it.flip?-1:1,px=w.A[0]+w.d[0]*it.t,pz=w.A[1]+w.d[1]*it.t,m=`matrix(${w.d[0]*f},${w.d[1]*f},${w.n[0]},${w.n[1]},${px},${pz})`;
+  (pl.items||[]).forEach(it=>{if(it.type==='fw'&&it.a&&it.b){s+=`<line x1="${it.a[0]}" y1="${it.a[1]}" x2="${it.b[0]}" y2="${it.b[1]}" stroke="${wc}" stroke-width=".12"/>`;return}const w=W[it.wall];if(!w)return;const f=it.flip?-1:1,px=w.A[0]+w.d[0]*it.t,pz=w.A[1]+w.d[1]*it.t,m=`matrix(${w.d[0]*f},${w.d[1]*f},${w.n[0]},${w.n[1]},${px},${pz})`;
     if(it.type==='tu'){const tw=it.w||.86;s+=`<g transform="${m}"><rect x="${-tw/2}" y="-.06" width="${tw}" height=".1" fill="${FLOORC[pl.floor]||'#eee'}"/><path d="M${-tw/2} 0V${tw}A${tw} ${tw} 0 0 0 ${tw/2} 0" fill="none" stroke="#7d8a88" stroke-width=".025"/></g>`;return}
     if(it.type==='fe'){const tw=it.w||.9;s+=`<rect transform="${m}" x="${-tw/2}" y="-.06" width="${tw}" height=".08" fill="#9fd0e8"/>`;return}
     const dm=(DIM[it.type]||{})[it.v];if(!dm)return;const ww=it.w||dm[0],dd=it.d||dm[1];

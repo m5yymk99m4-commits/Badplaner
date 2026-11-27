@@ -216,7 +216,8 @@ const T={
    arms:[{id:'wand',name:'Wannenarmatur Aufputz',price:199},{id:'stand',name:'Standarmatur bodenstehend',price:590}]},
  ac:{label:'Accessoire',cat:'acc',vars:[{id:'papier',name:'Toilettenpapierhalter',w:.16,d:.1,y:.75,price:39},{id:'ersatz',name:'Ersatzrollenhalter',w:.1,d:.1,y:.45,price:29},{id:'buerste',name:'WC-Bürstengarnitur',w:.1,d:.1,y:.3,price:49},{id:'haken',name:'Handtuchhaken',w:.06,d:.05,y:1.7,price:19},{id:'stange',name:'Handtuchstange 60 cm',w:.6,d:.08,y:1.1,price:49},{id:'ring',name:'Handtuchring',w:.2,d:.07,y:1.1,price:35},{id:'seife',name:'Seifenspender',w:.08,d:.1,y:1.05,price:39},{id:'ablage',name:'Glasablage 50 cm',w:.5,d:.12,y:1.15,price:45},{id:'duschkorb',name:'Duschablage',w:.3,d:.12,y:1.2,price:59},{id:'griff',name:'Haltegriff 60 cm',w:.6,d:.08,y:.85,price:69},{id:'sitz',name:'Duschklappsitz',w:.45,d:.4,y:.48,price:189}],size:['y']},
  hk:{label:'Heizkörper',cat:'bau',vars:[{id:'hk',name:'Handtuchheizkörper 50 × 120',w:.5,d:.1,price:329},{id:'hk60',name:'Handtuchheizkörper 60 × 170',w:.6,d:.1,price:449}]},
- tw:{label:'Trennwand',cat:'bau',vars:[{id:'halb',name:'Trennwand halbhoch 1,20 m',w:.12,d:.9,price:0,perM:180},{id:'hoch',name:'Trennwand raumhoch',w:.12,d:.9,price:0,perM:260}],size:['d']},
+ tw:{label:'Trennwand',cat:'bau',vars:[{id:'halb',name:'Trennwand an der Wand, halbhoch',w:.12,d:.9,price:0,perM:180},{id:'hoch',name:'Trennwand an der Wand, raumhoch',w:.12,d:.9,price:0,perM:260}],size:['d']},
+ fw:{label:'Freie Wand',cat:'bau',free:true,vars:[{id:'halb',name:'Freistehende Wand, halbhoch',w:.12,d:1,price:0,perM:190},{id:'hoch',name:'Freistehende Wand, raumhoch',w:.12,d:1,price:0,perM:270}]},
  vw:{label:'Vorwand',cat:'bau',vars:[{id:'v',name:'Vorwand mit Ablage, 1,10 m',w:1.2,d:.2,price:0,perM:140}],size:['w']},
  ni:{label:'Nische',cat:'bau',open:.12,vars:[{id:'n',name:'Wandnische mit LED',w:.6,h:.4,y:1.1,price:290}],size:['w','h','y']},
  fe:{label:'Fenster',cat:'bau',open:.24,vars:[{id:'f',name:'Fenster (Bestand)',w:.9,h:1,y:1.1,price:0}],size:['w','h','y']},
@@ -244,8 +245,9 @@ let sel=null,selWall=null,selCorner=null,tab='draw';
 function wallsOf(p){const n=p.length;return p.map((A,i)=>{const B=p[(i+1)%n],dx=B[0]-A[0],dz=B[1]-A[1],len=Math.hypot(dx,dz)||.001;return{A,B,len,d:[dx/len,dz/len],n:[-dz/len,dx/len]}})}
 const walls=()=>wallsOf(S.pts);
 function areaOf(p){let s=0;p.forEach((a,i)=>{const b=p[(i+1)%p.length];s+=a[0]*b[1]-b[0]*a[1]});return s/2}
-function dims(it){const v=by(T[it.type].vars,it.v);return{w:it.w??v.w,d:it.d??(v.d||0),h:it.h??v.h,y:it.y??v.y,v}}
-function fixItems(){const W=walls();S.items.forEach(it=>{it.wall=clamp(it.wall,0,W.length-1);const w=dims(it).w,L=W[it.wall].len;it.t=clamp(it.t,Math.min(w/2,L/2),Math.max(L-w/2,L/2))})}
+function dims(it){const v=by(T[it.type].vars,it.v);if(it.type==='fw')return{w:.12,d:Math.hypot(it.b[0]-it.a[0],it.b[1]-it.a[1]),h:it.v==='hoch'?S.H:1.2,v};return{w:it.w??v.w,d:it.d??(v.d||0),h:it.h??v.h,y:it.y??v.y,v}}
+const isFree=it=>!!T[it.type].free;
+function fixItems(){const W=walls();S.items.forEach(it=>{if(isFree(it))return;it.wall=clamp(it.wall,0,W.length-1);const w=dims(it).w,L=W[it.wall].len;it.t=clamp(it.t,Math.min(w/2,L/2),Math.max(L-w/2,L/2))})}
 function isect(m1,u1,m2,u2){const den=u1[0]*u2[1]-u1[1]*u2[0];if(Math.abs(den)<1e-6)return null;const s=((m2[0]-m1[0])*u2[1]-(m2[1]-m1[1])*u2[0])/den;return[m1[0]+u1[0]*s,m1[1]+u1[1]*s]}
 function offsetPoly(p,t){const W=wallsOf(p),n=W.length;return W.map((w,i)=>{const q=W[(i-1+n)%n];const m2=[w.A[0]-w.n[0]*t,w.A[1]-w.n[1]*t];return isect([q.A[0]-q.n[0]*t,q.A[1]-q.n[1]*t],q.d,m2,w.d)||m2})}
 function segDist(p,a,b){const dx=b[0]-a[0],dz=b[1]-a[1],l=dx*dx+dz*dz;if(!l)return Math.hypot(p[0]-a[0],p[1]-a[1]);const t=clamp(((p[0]-a[0])*dx+(p[1]-a[1])*dz)/l,0,1);return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dz)}
@@ -266,7 +268,7 @@ function autoLayout(){const W=walls(),n=W.length,ord=[...W.keys()].sort((a,b)=>W
   S.nid=id;fixItems();addItem('ac','papier');addItem('ac','buerste');fixItems()}
 function splitWall(i){const w=walls()[i];S.pts.splice(i+1,0,[snap((w.A[0]+w.B[0])/2),snap((w.A[1]+w.B[1])/2)]);S.items.forEach(it=>{if(it.wall>i)it.wall++;else if(it.wall===i&&it.t>w.len/2){it.wall=i+1;it.t-=w.len/2}});if(S.accent!=null&&S.accent>i)S.accent++;selCorner=i+1;selWall=null}
 function delCorner(j){const n=S.pts.length;if(n<=3)return;const W=walls(),prev=(j-1+n)%n;S.items.forEach(it=>{if(it.wall===j){it.wall=prev;it.t+=W[prev].len}});S.pts.splice(j,1);S.items.forEach(it=>{if(it.wall>j)it.wall--});S.accent=null;selCorner=null}
-function normalize(){if(areaOf(S.pts)>=0)return;const W=walls(),n=S.pts.length;S.pts.reverse();S.items.forEach(it=>{it.t=W[it.wall].len-it.t;it.wall=((n-2-it.wall)%n+n)%n});S.accent=null}
+function normalize(){if(areaOf(S.pts)>=0)return;const W=walls(),n=S.pts.length;S.pts.reverse();S.items.forEach(it=>{if(isFree(it))return;it.t=W[it.wall].len-it.t;it.wall=((n-2-it.wall)%n+n)%n});S.accent=null}
 function setLen(i,v){const w=walls()[i],n=S.pts.length,dl=v-w.len;[1,2].forEach(k=>{const j=(i+k)%n;if(j===i)return;S.pts[j]=[+(S.pts[j][0]+w.d[0]*dl).toFixed(3),+(S.pts[j][1]+w.d[1]*dl).toFixed(3)]})}
 
 /* ================= Texturen ================= */
@@ -369,6 +371,10 @@ function build(){
   });
   // Objekte
   S.items.forEach(it=>{
+    if(isFree(it)){const D=dims(it),g=new THREE.Group();g.userData.id=it.id;const dx=it.b[0]-it.a[0],dz=it.b[1]-it.a[1],L=Math.max(D.d,.05),hh=D.h-(it.v==='hoch'?.01:0);
+      g.position.set((it.a[0]+it.b[0])/2,0,(it.a[1]+it.b[1])/2);g.rotation.y=Math.atan2(-dz,dx);room.add(g);
+      RB(g,L+.12,hh,.12,.003,tileMat(by(WALL,S.wall),(L+.12)/1.2,hh/1.2),0,hh/2,0,.003);if(it.v==='halb')RB(g,L+.14,.02,.14,.004,M.cer,0,hh+.01,0,.003);
+      if(it.id===sel){helper=new THREE.BoxHelper(g,0x2ab7c2);scene.add(helper)}return}
     const w=W[it.wall],D=dims(it),g=new THREE.Group();g.userData.id=it.id;
     g.position.set(w.A[0]+w.d[0]*it.t,0,w.A[1]+w.d[1]*it.t);g.rotation.y=Math.atan2(-w.d[1],w.d[0]);g.scale.x=it.flip&&!T[it.type].open?-1:1;room.add(g);
     const {d,v}=D,ww=D.w,arm=it.arm,me=M.metal;
@@ -530,7 +536,7 @@ function calc(){
   const per=W.map((w,i)=>{let a=w.len*tH;S.items.forEach(it=>{if(it.wall!==i)return;const D=dims(it);if(it.type==='tu'||it.type==='fe')a-=D.w*Math.max(0,Math.min(D.y+D.h,tH)-D.y);if(it.type==='ni')a+=(D.w+D.h)*2*.12});return a});
   let wA=per.reduce((s,a,i)=>s+(i===S.accent?0:a),0),aA=S.accent!=null&&per[S.accent]!=null?per[S.accent]:0;
   S.items.forEach(it=>{const D=dims(it);if(it.type==='vw')wA+=D.w*1.3+.44;if(it.type==='wc'&&it.v!=='stand')wA+=.8;if(it.type==='wa'&&it.v!=='frei')wA+=(D.w+D.d)*.56;
-    if(it.type==='tw')wA+=D.d*(it.v==='hoch'?S.H:1.2)*2+(D.d+.12)*.12;if(it.type==='du'&&(it.glas==='mauer'||it.glas==='mauerhalb'))wA+=(D.w+(it.v==='eck'?D.d:0))*(it.glas==='mauer'?S.H:1.2)*2});
+    if(it.type==='tw')wA+=D.d*(it.v==='hoch'?S.H:1.2)*2+(D.d+.12)*.12;if(it.type==='fw')wA+=(D.d+.12)*D.h*2+(D.d+.12)*.12+D.h*.24;if(it.type==='du'&&(it.glas==='mauer'||it.glas==='mauerhalb'))wA+=(D.w+(it.v==='eck'?D.d:0))*(it.glas==='mauer'?S.H:1.2)*2});
   const r=a=>Math.ceil(a*1.1*10)/10;wA=r(wA);aA=r(aA);const fA=r(Math.abs(areaOf(S.pts))),n=x=>x.toLocaleString('de-DE',{maximumFractionDigits:1});
   const l=[['Wandfliesen '+wt.name,`${wt.fmt} · ${n(wA)} m² à ${eur(wt.price)}, inkl. 10 % Verschnitt`,wA*wt.price]];
   if(aA)l.push(['Akzentwand '+at.name,`${at.fmt} · ${n(aA)} m² à ${eur(at.price)}`,aA*at.price]);
@@ -539,7 +545,7 @@ function calc(){
     if(t.vars[0].perM){p=D.w*t.vars[0].perM;det=`${cm(D.w)} cm breit, gefliest`}
     if(it.type==='wt'||it.type==='mo'||it.type==='sp'&&it.v==='schrank')det='Front '+by(FURN,S.furn).name;
     if(it.type==='ni')det=`${cm(D.w)} × ${cm(D.h)} cm, gefliest`;
-    if(it.type==='tw'){p=D.d*t.vars.find(x=>x.id===it.v).perM;det=`${cm(D.d)} cm lang, gefliest`}
+    if(it.type==='tw'||it.type==='fw'){p=D.d*t.vars.find(x=>x.id===it.v).perM;det=`${cm(D.d)} cm lang, gefliest`}
     if(it.type==='ac')det=fin.name;
     Object.entries(t.opts||{}).forEach(([k,o])=>{const c=by(o.list,it[k]||o.def);det+=' · '+o.label+': '+c.name;p+=c.price||0});
     if(p)l.push([D.v.name,det,p]);
@@ -554,7 +560,7 @@ function planSVG(o){
   const W=walls(),vb=viewOf(o.dims?1.05:.55),fs=Math.max(vb[2],vb[3])/26;
   const outer=offsetPoly(S.pts,.14);
   let s=`<path d="M${outer.map(p=>p.join(',')).join('L')}Z M${S.pts.map(p=>p.join(',')).join('L')}Z" fill="var(--wallc)" fill-rule="evenodd"/><polygon points="${S.pts.map(p=>p.join(',')).join(' ')}" fill="var(--floor)"/>`;
-  S.items.forEach(it=>{const w=W[it.wall],D=dims(it),f=it.flip&&!T[it.type].open?-1:1,px=w.A[0]+w.d[0]*it.t,pz=w.A[1]+w.d[1]*it.t,on=it.id===sel,ln=`stroke="${on?'var(--pet)':'var(--wallc)'}" stroke-width="${on?.035:.014}"`,hw=D.w/2;let q='';
+  S.items.filter(it=>!isFree(it)).forEach(it=>{const w=W[it.wall],D=dims(it),f=it.flip&&!T[it.type].open?-1:1,px=w.A[0]+w.d[0]*it.t,pz=w.A[1]+w.d[1]*it.t,on=it.id===sel,ln=`stroke="${on?'var(--pet)':'var(--wallc)'}" stroke-width="${on?.035:.014}"`,hw=D.w/2;let q='';
     if(it.type==='tu')q=`<rect x="${-hw}" y="-.16" width="${D.w}" height=".18" fill="var(--floor)"/><path d="M${-hw} 0 L${-hw} ${D.w} M${-hw} ${D.w} A${D.w} ${D.w} 0 0 0 ${hw} 0" fill="none" ${ln}/>`;
     else if(it.type==='fe')q=`<rect x="${-hw}" y="-.155" width="${D.w}" height=".17" fill="var(--panel)" ${ln}/><line x1="${-hw}" y1="-.07" x2="${hw}" y2="-.07" ${ln}/>`;
     else if(it.type==='ni')q=`<rect x="${-hw}" y="-.12" width="${D.w}" height=".12" fill="#f0c674" ${ln}/>`;
@@ -576,6 +582,11 @@ function planSVG(o){
         <rect x="${mx-fs*1.6}" y="${mz-fs*.75}" width="${fs*3.2}" height="${fs*1.5}" fill="transparent" transform="rotate(${ang} ${mx} ${mz})"/><text x="${mx}" y="${mz}" font-size="${fs}" font-weight="${on?700:600}" fill="${col}" text-anchor="middle" dominant-baseline="middle" transform="rotate(${ang} ${mx} ${mz})">${cm(w.len)}</text></g>`}
     if(o.handles){const mx=(w.A[0]+w.B[0])/2,mz=(w.A[1]+w.B[1])/2;s+=`<rect data-w="${i}" data-drag="1" x="${mx-.08}" y="${mz-.08}" width=".16" height=".16" rx=".03" fill="var(--panel)" stroke="var(--pet)" stroke-width=".03" style="cursor:move"/>`}
     if(o.labels){const mx=(w.A[0]+w.B[0])/2+w.n[0]*.3,mz=(w.A[1]+w.B[1])/2+w.n[1]*.3;s+=`<text x="${mx}" y="${mz}" font-size="${fs*.8}" fill="var(--mute)" text-anchor="middle" dominant-baseline="middle">W${i+1}</text>`}});
+  S.items.filter(isFree).forEach(it=>{const on=it.id===sel,col=on?'var(--pet)':'var(--wallc)';
+    s+=`<line x1="${it.a[0]}" y1="${it.a[1]}" x2="${it.b[0]}" y2="${it.b[1]}" stroke="${col}" stroke-width=".12" stroke-linecap="square"/>`;
+    if(it.v==='halb')s+=`<line x1="${it.a[0]}" y1="${it.a[1]}" x2="${it.b[0]}" y2="${it.b[1]}" stroke="var(--floor)" stroke-width=".02" stroke-dasharray=".05 .04"/>`;
+    if(o.items){s+=`<line data-i="${it.id}" x1="${it.a[0]}" y1="${it.a[1]}" x2="${it.b[0]}" y2="${it.b[1]}" stroke="transparent" stroke-width=".3" style="cursor:move"/>`;
+      if(on)['a','b'].forEach(k=>{s+=`<circle data-fe="${k}" data-fid="${it.id}" cx="${it[k][0]}" cy="${it[k][1]}" r=".13" fill="var(--brass)" stroke="var(--panel)" stroke-width=".03" style="cursor:move"/>`})}});
   if(o.handles)S.pts.forEach((p,i)=>{s+=`<circle data-c="${i}" cx="${p[0]}" cy="${p[1]}" r=".1" fill="${i===selCorner?'var(--brass)':'var(--pet)'}" style="cursor:move"/>`});
   return`<svg class="plan mid" id="plan" viewBox="${vb.join(' ')}" data-o='${JSON.stringify(o)}'>${s}</svg>`}
 function drawSVG(){const g=[];for(let i=0;i<=12;i++)g.push(`<line x1="${i*.5}" y1="0" x2="${i*.5}" y2="6" stroke="var(--grid)" stroke-width="${i%2?.01:.02}"/><line x1="0" y1="${i*.5}" x2="6" y2="${i*.5}" stroke="var(--grid)" stroke-width="${i%2?.01:.02}"/>`);
@@ -586,10 +597,11 @@ const queue=()=>{if(raf)return;raf=requestAnimationFrame(()=>{raf=0;fixItems();b
 function svgPt(svg,e){const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;const q=p.matrixTransform(svg.getScreenCTM().inverse());return[q.x,q.y]}
 document.addEventListener('pointerdown',e=>{
   const dsv=e.target.closest('#draw');if(dsv){e.preventDefault();dsv.setPointerCapture(e.pointerId);stroke={svg:dsv,pts:[svgPt(dsv,e)]};document.getElementById('msg').textContent='';return}
-  const svg=e.target.closest('#plan');if(!svg)return;const t=e.target.closest('[data-c],[data-w]:not([data-w=""]),[data-i]:not([data-i=""])');if(!t)return;
+  const svg=e.target.closest('#plan');if(!svg)return;const t=e.target.closest('[data-fe],[data-c],[data-w]:not([data-w=""]),[data-i]:not([data-i=""])');if(!t)return;
   e.preventDefault();svg.setPointerCapture(e.pointerId);const p=svgPt(svg,e);
-  if(t.dataset.c!=null){selCorner=+t.dataset.c;selWall=null;drag={k:'c',i:selCorner}}
-  else if(t.dataset.i!=null&&t.dataset.w==null){sel=+t.dataset.i;drag={k:'i',id:sel};build()}
+  if(t.dataset.fe){sel=+t.dataset.fid;drag={k:'fe',id:sel,end:t.dataset.fe}}
+  else if(t.dataset.c!=null){selCorner=+t.dataset.c;selWall=null;drag={k:'c',i:selCorner}}
+  else if(t.dataset.i!=null&&t.dataset.w==null){sel=+t.dataset.i;const fi=S.items.find(x=>x.id===sel);drag=fi&&isFree(fi)?{k:'fm',id:sel,p0:p,a:[...fi.a],b:[...fi.b]}:{k:'i',id:sel};build();if(fi&&isFree(fi))render()}
   else{selWall=+t.dataset.w;selCorner=null;const w=walls()[selWall];drag=t.dataset.drag?{k:'w',i:selWall,p0:p,A:[...w.A],B:[...w.B],n:w.n}:{k:'none'}}
   drag.svg=svg;queue()});
 document.addEventListener('pointermove',e=>{
@@ -597,6 +609,8 @@ document.addEventListener('pointermove',e=>{
   if(!drag||drag.k==='none')return;const p=svgPt(drag.svg,e);
   if(drag.k==='c')S.pts[drag.i]=[snap(p[0]),snap(p[1])];
   if(drag.k==='w'){const n=S.pts.length,dl=snap((p[0]-drag.p0[0])*drag.n[0]+(p[1]-drag.p0[1])*drag.n[1]);S.pts[drag.i]=[drag.A[0]+drag.n[0]*dl,drag.A[1]+drag.n[1]*dl];S.pts[(drag.i+1)%n]=[drag.B[0]+drag.n[0]*dl,drag.B[1]+drag.n[1]*dl]}
+  if(drag.k==='fe'){const it=S.items.find(x=>x.id===drag.id);it[drag.end]=snapEnd(p,it,drag.end)}
+  if(drag.k==='fm'){const it=S.items.find(x=>x.id===drag.id),dx=snap(p[0]-drag.p0[0]),dz=snap(p[1]-drag.p0[1]);it.a=[drag.a[0]+dx,drag.a[1]+dz];it.b=[drag.b[0]+dx,drag.b[1]+dz]}
   if(drag.k==='i'){const it=S.items.find(x=>x.id===drag.id),W=walls();let best=null;W.forEach((w,i)=>{const t=clamp((p[0]-w.A[0])*w.d[0]+(p[1]-w.A[1])*w.d[1],0,w.len),dd=Math.hypot(p[0]-w.A[0]-w.d[0]*t,p[1]-w.A[1]-w.d[1]*t);if(!best||dd<best.dd)best={i,t,dd}});it.wall=best.i;it.t=snap(best.t)}
   queue()});
 document.addEventListener('pointerup',()=>{
@@ -611,7 +625,7 @@ const chips=(key,list,cur)=>`<div class="chips">${list.map(t=>`<button class="ch
 const chipsG=(key,list,cur)=>[...new Set(list.map(t=>t.g))].map(g=>`<p class="gl">${TGROUP[g]||g}</p>`+chips(key,list.filter(t=>t.g===g),cur)).join('');
 const rng=(k,l,min,max,val)=>`<div class="row"><label for="r-${k}">${l}</label><input id="r-${k}" type="range" min="${min}" max="${max}" step=".05" value="${val}" data-r="${k}"><output id="o-${k}">${cm(val)} cm</output></div>`;
 let curCat='wasch';
-const EXTRA={wc:[['ac','papier'],['ac','ersatz'],['ac','buerste']],dusche:[['ac','duschkorb'],['ac','sitz'],['ni','n'],['tw','halb'],['tw','hoch']]};
+const EXTRA={wc:[['ac','papier'],['ac','ersatz'],['ac','buerste']],dusche:[['ac','duschkorb'],['ac','sitz'],['ni','n'],['tw','halb'],['tw','hoch'],['fw','halb'],['fw','hoch']]};
 function modelsOf(cat){const out=[];Object.entries(T).forEach(([type,t])=>{if(t.cat===cat)t.vars.forEach(v=>out.push({type,v}))});(EXTRA[cat]||[]).forEach(([type,id])=>out.push({type,v:by(T[type].vars,id)}));return out}
 function freeGaps(skip){const W=walls(),n=W.length;return W.map((w,i)=>{const bl=[];
   S.items.forEach(it=>{if(it.id===skip)return;const isF=(FLOOR_TYPES.includes(it.type)&&!(it.type==='mo'&&it.v==='regal'))||it.type==='tu';if(!isF)return;const D=dims(it),ww=D.w,dep=it.type==='tu'?D.w:D.d;
@@ -638,10 +652,23 @@ function smartPlace(n){const W=walls(),D=dims(n),near=ty=>S.items.find(i=>i.type
   n.wall=best.i;const {g,L}=best;
   if(corner&&best.atC){if(g[1]>L-.01){n.t=snap(L-D.w/2);if(n.v==='eck')n.flip=true}else n.t=snap(D.w/2)}else n.t=snap((g[0]+g[1])/2);
   return true}
+// Endpunkt einer freien Wand: Raster, rechter Winkel, an Wände und andere Trennwände andocken (T-Lösung)
+function nearestOn(p,a,b){const dx=b[0]-a[0],dz=b[1]-a[1],l=dx*dx+dz*dz||1e-9,t=clamp(((p[0]-a[0])*dx+(p[1]-a[1])*dz)/l,0,1);return[a[0]+dx*t,a[1]+dz*t]}
+function snapEnd(p,it,end){const o=it[end==='a'?'b':'a'];let q=[snap(p[0]),snap(p[1])];
+  if(Math.abs(q[0]-o[0])<.15)q[0]=o[0];if(Math.abs(q[1]-o[1])<.15)q[1]=o[1];
+  let best=null;const test=(a,b,off)=>{const c=nearestOn(q,a,b),d=Math.hypot(c[0]-q[0],c[1]-q[1]);if(d<.22&&(!best||d<best.d))best={c,d,a,b,off}};
+  walls().forEach(w=>test(w.A,w.B,0));S.items.filter(x=>isFree(x)&&x.id!==it.id).forEach(x=>test(x.a,x.b,.06));
+  if(best){let c=best.c;if(best.off){const dx=best.b[0]-best.a[0],dz=best.b[1]-best.a[1],l=Math.hypot(dx,dz)||1,nx=-dz/l,nz=dx/l,side=Math.sign((o[0]-c[0])*nx+(o[1]-c[1])*nz)||1;c=[c[0]+nx*best.off*side,c[1]+nz*best.off*side]}q=[+c[0].toFixed(3),+c[1].toFixed(3)]}
+  if(Math.hypot(q[0]-o[0],q[1]-o[1])<.3)return it[end];return q}
 function addItem(type,vid){const t=T[type],v=by(t.vars,vid),n={id:S.nid++,type,v:v.id,wall:0,t:0};if(t.arms)n.arm=t.arms[0].id;
   Object.entries(t.opts||{}).forEach(([k,o])=>n[k]=o.def);if((t.size||[]).includes('w'))n.w=v.w;if(v.h)n.h=v.h;if(v.y!=null)n.y=v.y;if((t.size||[]).includes('d'))n.d=v.d;
+  if(T[type].free){const xs=S.pts.map(p=>p[0]),zs=S.pts.map(p=>p[1]),cx=snap((Math.min(...xs)+Math.max(...xs))/2),cz=snap((Math.min(...zs)+Math.max(...zs))/2);delete n.wall;delete n.t;n.a=[cx-.5,cz];n.b=[cx+.5,cz];S.items.push(n);return {n,ok:true}}
   const ok=smartPlace(n);S.items.push(n);return {n,ok}}
 function itemCard(){const it=S.items.find(x=>x.id===sel);if(!it)return'';const t=T[it.type],D=dims(it),W=walls(),w=W[it.wall];
+  if(isFree(it))return `<div class="card"><h3>${D.v.name}<button class="btn warn" data-act="del">Entfernen</button></h3>
+    <p class="small" style="margin-top:0">Im Grundriss die <b>goldenen Punkte</b> an den Enden ziehen. Kommt ein Ende in die Nähe einer Wand oder einer anderen Trennwand, rastet es dort ein (T-Lösung). Die ganze Wand verschiebst du, indem du sie in der Mitte ziehst.</p>
+    <div class="lbl">Höhe</div>${seg('iv',t.vars.map(x=>({id:x.id,name:x.id==='halb'?'Halbhoch 1,20 m':'Raumhoch'})),it.v)}
+    ${rng('flen','Länge',.3,6,D.d)}<div class="acts"><button class="btn ghost" data-act="frot">90° drehen</button></div></div>`;
   let h=`<div class="card"><h3>${D.v.name}<button class="btn warn" data-act="del">Entfernen</button></h3>`;
   if(t.vars.length>1)h+=`<div class="lbl">Modell</div>${seg('iv',t.vars,it.v)}`;
   Object.entries(t.opts||{}).forEach(([k,o])=>{h+=`<div class="lbl">${o.label}</div>${seg('io-'+k,o.list.map(x=>({...x,price:x.price>0?x.price:0})),it[k]||o.def)}`});
@@ -672,7 +699,7 @@ function render(){
     <div class="models">${mods.map(m=>`<button data-addv="${m.type}:${m.v.id}"><b>${m.v.name}</b><small>${m.v.perM?eur(m.v.perM)+' pro m':m.v.price?eur(m.v.price):'ohne Aufpreis'}</small></button>`).join('')}</div>
     <p class="msg" id="omsg"></p>${itemCard()}
     <h2>Grundriss</h2>${planSVG({items:1,walls:1,labels:1})}<p class="small">Teile im Plan ziehen, sie rasten an der nächsten Wand ein. Im 3D-Bild antippen zum Auswählen.</p>
-    <details class="all"><summary>Alle Teile im Bad (${S.items.length})</summary><div class="list">${S.items.map(it=>`<button data-pick="${it.id}" class="${it.id===sel?'on':''}"><span>${dims(it).v.name}</span><span>W${it.wall+1}</span></button>`).join('')}</div></details>
+    <details class="all"><summary>Alle Teile im Bad (${S.items.length})</summary><div class="list">${S.items.map(it=>`<button data-pick="${it.id}" class="${it.id===sel?'on':''}"><span>${dims(it).v.name}</span><span>${isFree(it)?'frei':'W'+(it.wall+1)}</span></button>`).join('')}</div></details>
     <h2>Deko</h2>${seg('deko',[{id:true,name:'Handtücher, Pflanzen'},{id:false,name:'Ohne'}],S.deko)}`}
   if(tab==='mat'){h=`<h2>Wandfliese</h2>${chipsG('wall',WALL,S.wall)}<h2>Fliesenhöhe</h2>${seg('tileH',[{id:'voll',name:'Raumhoch'},{id:'halb',name:'Halbhoch 1,20 m'}],S.tileH)}
     <h2>Akzentwand</h2>${seg('accent',[{id:'',name:'Keine'},...walls().map((_,i)=>({id:i,name:'W'+(i+1)}))],S.accent??'')}${S.accent!=null?`<div style="height:10px"></div>${chipsG('accentTile',WALL,S.accentTile)}`:''}
@@ -700,6 +727,7 @@ pane.addEventListener('click',e=>{
   else if(a){const x=a.dataset.act;
     if(x==='del'&&it){S.items=S.items.filter(i=>i!==it);sel=null}
     if(x==='flip'&&it)it.flip=!it.flip;
+    if(x==='frot'&&it&&isFree(it)){const mx=(it.a[0]+it.b[0])/2,mz=(it.a[1]+it.b[1])/2,r=q=>[snap(mx-(q[1]-mz)),snap(mz+(q[0]-mx))];it.a=r(it.a);it.b=r(it.b)}
     if(x==='split'&&selWall!=null)splitWall(selWall);
     if(x==='delc'&&selCorner!=null)delCorner(selCorner);
     if(x==='go3'){tab='obj';render();window.scrollTo({top:0,behavior:'smooth'});return}
@@ -709,7 +737,7 @@ pane.addEventListener('click',e=>{
     if(x==='copy'){const c=calc(),txt='Badplanung – Materialliste\n'+c.l.map(l=>`${l[0]} (${l[1]}): ${eur(l[2])}`).join('\n')+`\nSumme: ${eur(c.t)}`;(navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>a.textContent='Kopiert ✓').catch(()=>a.textContent='Kopieren nicht möglich');return}}
   else return;
   fixItems();save();build();render()});
-pane.addEventListener('input',e=>{const k=e.target.dataset.r;if(!k)return;const v=+e.target.value,it=S.items.find(x=>x.id===sel);if(k==='H')S.H=v;else if(it)it[k]=v;document.getElementById('o-'+k).textContent=cm(v)+' cm';save();queue()});
+pane.addEventListener('input',e=>{const k=e.target.dataset.r;if(!k)return;const v=+e.target.value,it=S.items.find(x=>x.id===sel);if(k==='H')S.H=v;else if(k==='flen'&&it){const dx=it.b[0]-it.a[0],dz=it.b[1]-it.a[1],l=Math.hypot(dx,dz)||1;it.b=[+(it.a[0]+dx/l*v).toFixed(3),+(it.a[1]+dz/l*v).toFixed(3)]}else if(it)it[k]=v;document.getElementById('o-'+k).textContent=cm(v)+' cm';save();queue()});
 pane.addEventListener('change',e=>{const i=e.target.dataset.len;if(i==null)return;const v=clamp(+e.target.value||100,30,1200)/100;selWall=+i;setLen(+i,v);normalize();fixItems();save();build();render();});
 pane.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.dataset.len!=null){e.preventDefault();const i=+e.target.dataset.len;e.target.blur();setTimeout(()=>{const nx=document.getElementById('len-'+((i+1)%S.pts.length));if(nx){nx.focus();nx.select()}},30)}});
 pane.addEventListener('focusin',e=>{if(e.target.dataset.len!=null&&selWall!==+e.target.dataset.len){selWall=+e.target.dataset.len;const pl=document.getElementById('plan');if(pl)pl.innerHTML=planSVG({handles:1,walls:1}).replace(/^<svg[^>]*>|<\/svg>$/g,'');pane.querySelectorAll('.mass label').forEach((l,j)=>l.classList.toggle('on',j===selWall))}});

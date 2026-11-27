@@ -76,6 +76,14 @@ function conflicts(plan) {
       if (distP < q.d - .02 && distQ < p.d - .02) out.push(`${p.name} (W${i + 1}) und ${q.name} (W${next + 1}) stoßen in der Ecke zusammen.`);
     }));
   }
+  // Objekte, die in einer freistehenden Wand stehen
+  const fws = plan.items.filter(it => it.type === 'fw' && it.a && it.b);
+  if (fws.length) floor.filter(f => f.it.type !== 'tu').forEach(f => {
+    const w = W[f.it.wall], n2 = [-w.d[1], w.d[0]];
+    const inside = (x, z) => { const rx = x - w.A[0], rz = z - w.A[1], u = rx * w.d[0] + rz * w.d[1], v = rx * n2[0] + rz * n2[1]; return u > f.a + .02 && u < f.b - .02 && v > .02 && v < f.d - .02; };
+    fws.forEach(fw => { const L = Math.hypot(fw.b[0] - fw.a[0], fw.b[1] - fw.a[1]), steps = Math.max(2, Math.ceil(L / .05));
+      for (let k = 0; k <= steps; k++) { const x = fw.a[0] + (fw.b[0] - fw.a[0]) * k / steps, z = fw.a[1] + (fw.b[1] - fw.a[1]) * k / steps; if (inside(x, z)) { out.push(`${f.name} (W${f.it.wall + 1}) steht in einer freistehenden Wand.`); break; } } });
+  });
   return [...new Set(out)];
 }
 
@@ -97,7 +105,7 @@ function normalize(base, e) {
     mood: 'tag', deko: true, items: [],
   };
   let id = 1;
-  (base.items || []).filter(it => it.type === 'tu' || it.type === 'fe').forEach(it => plan.items.push({ ...it, id: id++ }));
+  (base.items || []).filter(it => it.type === 'tu' || it.type === 'fe' || it.type === 'fw').forEach(it => plan.items.push({ ...it, id: id++ }));
   (Array.isArray(e.objekte) ? e.objekte : []).slice(0, 20).forEach(o => {
     const cat = CATALOG[o.typ];
     if (!cat || !cat.vars[o.modell]) return;
@@ -153,7 +161,13 @@ function describe(base, wishes, trends, webTrends) {
   const lines = [];
   const U = W.reduce((s, w) => s + w.len, 0);
   lines.push(`RAUM\nGrundfläche ${de(A)} m², Raumhöhe ${de(base.H || 2.5)} m, ${n} Wände, Wandfläche raumhoch gefliest ca. ${de(U * (base.H || 2.5))} m² (halbhoch ca. ${de(U * 1.2)} m²).`);
-  W.forEach((w, i) => lines.push(`W${i + 1}: Länge ${de(w.len)} m (von Ecke ${i + 1} zu Ecke ${(i + 1) % n + 1}). Am Wandende: ${cornerKind(W, i)} zu W${(i + 1) % n + 1}.`));
+  const pt = q => `(${de(q[0])} | ${de(q[1])})`;
+  W.forEach((w, i) => lines.push(`W${i + 1}: Länge ${de(w.len)} m, von Ecke ${i + 1} ${pt(w.A)} zu Ecke ${(i + 1) % n + 1} ${pt(w.B)}. Am Wandende: ${cornerKind(W, i)} zu W${(i + 1) % n + 1}.`));
+  const fws = (base.items || []).filter(it => it.type === 'fw' && Array.isArray(it.a) && Array.isArray(it.b));
+  if (fws.length) {
+    lines.push('\nFREISTEHENDE WÄNDE (vom Berater gesetzt, bleiben fest, Koordinaten in m wie bei den Ecken, 12 cm dick)');
+    fws.forEach(f => lines.push(`- ${f.v === 'hoch' ? 'raumhoch' : 'halbhoch 1,20 m'} von ${pt(f.a)} bis ${pt(f.b)}. Diese Wand teilt den Raum: plane Dusche, WC usw. so, dass sie nicht in dieser Wand stehen. Wände, die an diese Wand anstoßen, bilden eine T-Lösung, z. B. für eine Dusche hinter der Wand.`));
+  }
   const fixed = (base.items || []).filter(it => it.type === 'tu' || it.type === 'fe');
   lines.push('\nFESTE ÖFFNUNGEN');
   if (!fixed.length) lines.push('Keine eingezeichnet. Nimm an, die Tür ist in der Mitte der längsten Wand, die keine Objekte braucht, und lass dort 90 cm frei.');
@@ -353,7 +367,7 @@ const EN = {
   finish: { chrom: 'polished chrome', edel: 'brushed stainless steel', schwarz: 'matte black', gold: 'brushed gold' },
   furn: { eichehell: 'light oak wood', nuss: 'walnut wood', weissm: 'matte white lacquer', beige: 'warm cashmere beige matte lacquer', eiche: 'natural oak wood', weiss: 'high-gloss white lacquer', anth: 'matte anthracite', gruen: 'matte sage green' },
   grout: { auto: 'matching', hell: 'light', grau: 'grey', dunkel: 'dark anthracite' },
-  obj: { 'wc:bidet': 'wall-hung white bidet', 'wt:h45': 'small wall-hung hand basin 45 cm', 'wt:w100': '100 cm washbasin with wall-hung vanity', 'wt:w140': '140 cm double washbasin with wall-hung vanity', 'wt:auf2': 'two countertop vessel basins on a 140 cm wall-hung console', 'sp:up': 'flush recessed mirror cabinet', 'sp:oval': 'oval mirror', 'sp:pur': 'simple rectangular mirror', 'du:walk140': 'large level-access walk-in shower 140 cm with linear drain', 'hk:hk60': 'tall heated towel rail', 'tw:halb': 'tiled half-height partition wall 1.2 m with a ceramic top', 'tw:hoch': 'tiled floor-to-ceiling partition wall', 'mo:hoch': 'tall wall-hung bathroom cabinet', 'mo:seite': 'wall-hung side cabinet', 'mo:regal': 'two floating wall shelves', 'mo:wm': 'white front-loading washing machine', 'ac:papier': 'toilet roll holder', 'ac:ersatz': 'spare toilet roll holder', 'ac:buerste': 'toilet brush holder', 'ac:haken': 'towel hook with towel', 'ac:stange': 'towel bar with towel', 'ac:ring': 'towel ring', 'ac:seife': 'wall-mounted soap dispenser', 'ac:ablage': 'glass shelf', 'ac:duschkorb': 'shower shelf', 'ac:griff': 'grab bar', 'ac:sitz': 'fold-down shower seat',
+  obj: { 'fw:halb': 'tiled free-standing half-height partition wall (1.2 m) with a ceramic top', 'fw:hoch': 'tiled free-standing floor-to-ceiling partition wall', 'wc:bidet': 'wall-hung white bidet', 'wt:h45': 'small wall-hung hand basin 45 cm', 'wt:w100': '100 cm washbasin with wall-hung vanity', 'wt:w140': '140 cm double washbasin with wall-hung vanity', 'wt:auf2': 'two countertop vessel basins on a 140 cm wall-hung console', 'sp:up': 'flush recessed mirror cabinet', 'sp:oval': 'oval mirror', 'sp:pur': 'simple rectangular mirror', 'du:walk140': 'large level-access walk-in shower 140 cm with linear drain', 'hk:hk60': 'tall heated towel rail', 'tw:halb': 'tiled half-height partition wall 1.2 m with a ceramic top', 'tw:hoch': 'tiled floor-to-ceiling partition wall', 'mo:hoch': 'tall wall-hung bathroom cabinet', 'mo:seite': 'wall-hung side cabinet', 'mo:regal': 'two floating wall shelves', 'mo:wm': 'white front-loading washing machine', 'ac:papier': 'toilet roll holder', 'ac:ersatz': 'spare toilet roll holder', 'ac:buerste': 'toilet brush holder', 'ac:haken': 'towel hook with towel', 'ac:stange': 'towel bar with towel', 'ac:ring': 'towel ring', 'ac:seife': 'wall-mounted soap dispenser', 'ac:ablage': 'glass shelf', 'ac:duschkorb': 'shower shelf', 'ac:griff': 'grab bar', 'ac:sitz': 'fold-down shower seat',
     'wc:wand': 'wall-hung rimless white toilet with flush plate on a tiled pre-wall', 'wc:stand': 'floor-standing white toilet with ceramic cistern', 'wc:dusch': 'wall-hung shower toilet (bidet toilet) on a tiled pre-wall',
     'wt:w60': '60 cm washbasin with wall-hung vanity cabinet', 'wt:w80': '80 cm washbasin with wall-hung vanity cabinet', 'wt:w120': '120 cm double washbasin with wall-hung vanity', 'wt:auf': 'round countertop vessel basin on a 100 cm wall-hung console',
     'sp:led': 'backlit LED mirror', 'sp:schrank': 'mirror cabinet with LED light', 'sp:rund': 'round mirror with soft backlight',
