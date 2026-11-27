@@ -15,7 +15,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const COOKIE_SECURE = process.env.COOKIE_SECURE === '1'; // auf 1 setzen, sobald HTTPS läuft
 const TRUST_PROXY = process.env.TRUST_PROXY === '1'; // 1 = hinter Caddy, echte Besucher-IP aus X-Forwarded-For
 const SESSION_DAYS = 30;
-const APP_VERSION = '2026-11-27.6';
+const APP_VERSION = '2026-11-27.7';
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 const db = new DatabaseSync(path.join(DATA_DIR, 'badplaner.db'));
@@ -58,6 +58,12 @@ CREATE TABLE IF NOT EXISTS variants (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_variants_project ON variants(project_id);
+CREATE TABLE IF NOT EXISTS photos (
+  id INTEGER PRIMARY KEY,
+  variant_id INTEGER NOT NULL REFERENCES variants(id) ON DELETE CASCADE,
+  file TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
@@ -68,6 +74,7 @@ const DEFAULT_MODEL = 'claude-sonnet-5-5';
 const getSetting = (k, d = '') => { const r = db.prepare('SELECT value FROM settings WHERE key = ?').get(k); return r ? r.value : d; };
 const setSetting = (k, v) => db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(k, v);
 const aiConfig = () => ({ key: getSetting('anthropic_key') || process.env.ANTHROPIC_API_KEY || '', model: getSetting('ai_model') || DEFAULT_MODEL, trends: getSetting('ai_trends'), webTrends: getSetting('web_trends'),
+  openaiKey: getSetting('openai_key') || process.env.OPENAI_API_KEY || '', imageModel: getSetting('image_model'), imageQuality: getSetting('image_quality') || 'high',
   onModel: m => { setSetting('ai_model', m); console.log('KI-Modell automatisch gewechselt zu ' + m); } });
 let trendsBusy = false;
 async function runTrendRefresh() {
@@ -195,7 +202,7 @@ route('POST', '/api/login', async (req, res) => {
     throw new HttpError(401, 'E-Mail oder Passwort falsch');
   }
   const token = createSession(u.id);
-  send(res, 200, { id: u.id, email: u.email, name: u.name, role: u.role }, { 'Set-Cookie': cookie(token, SESSION_DAYS * 86400) });
+  send(res, 200, { id: u.id, email: u.email, name: u.name, role: u.role, version: APP_VERSION }, { 'Set-Cookie': cookie(token, SESSION_DAYS * 86400) });
 });
 route('POST', '/api/logout', (req, res, u) => {
   if (u) db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(u.tokenHash);
@@ -257,7 +264,8 @@ route('GET', '/api/projects/:id', (req, res, u, p) => {
   proj.variants = db.prepare('SELECT * FROM variants WHERE project_id = ? ORDER BY id').all(proj.id).map(v => {
     let room = false; try { const pl = JSON.parse(v.plan_json || '{}'); room = Array.isArray(pl.pts) && pl.pts.length >= 3; } catch {}
     let plan = null; if (room) { try { plan = JSON.parse(v.plan_json); } catch {} }
-    return { ...variantOut(v, false), has_room: room, plan };
+    const ph = db.prepare('SELECT id FROM photos WHERE variant_id = ? ORDER BY id DESC LIMIT 1').get(v.id);
+    return { ...variantOut(v, false), has_room: room, plan, photo_id: ph ? ph.id : null };
   });
   return proj;
 });
@@ -340,7 +348,8 @@ route('GET', '/api/settings', (req, res, u) => {
   const c = aiConfig();
   let sources = []; try { sources = JSON.parse(getSetting('web_trends_sources', '[]')); } catch {}
   return { has_key: !!c.key, key_hint: c.key ? c.key.slice(0, 10) + '…' + c.key.slice(-4) : '', model: c.model, trends: c.trends,
-    web_trends: c.webTrends, web_trends_sources: sources, web_trends_at: Number(getSetting('web_trends_at', '0')) || null };
+    web_trends: c.webTrends, web_trends_sources: sources, web_trends_at: Number(getSetting('web_trends_at', '0')) || null,
+    has_openai: !!c.openaiKey, openai_hint: c.openaiKey ? c.openaiKey.slice(0, 7) + '…' + c.openaiKey.slice(-4) : '', image_model: c.imageModel, image_quality: c.imageQuality };
 });
 route('PUT', '/api/settings', async (req, res, u) => {
   needAdmin(u);
@@ -352,6 +361,13 @@ route('PUT', '/api/settings', async (req, res, u) => {
     if (!getSetting('web_trends')) setTimeout(() => runTrendRefresh().catch(e => console.warn('Trend-Recherche fehlgeschlagen:', e.message)), 2000);
   }
   if (b.remove_key === true) setSetting('anthropic_key', '');
+  if (typeof b.openai_key === 'string' && b.openai_key.trim()) {
+    const k = b.openai_key.trim();
+    if (!/^sk-[A-Za-z0-9_\-]{20,}$/.test(k)) throw new HttpError(400, 'Der OpenAI-Schlüssel sieht unvollständig aus. Er beginnt mit sk- und ist sehr lang. Bitte komplett kopieren.');
+    setSetting('openai_key', k);
+  }
+  if (typeof b.image_model === 'string') setSetting('image_model', str(b.image_model, 80));
+  if (['low', 'medium', 'high'].includes(b.image_quality)) setSetting('image_quality', b.image_quality);
   if (typeof b.model === 'string') setSetting('ai_model', str(b.model, 80) || DEFAULT_MODEL);
   if (typeof b.trends === 'string') setSetting('ai_trends', b.trends.slice(0, 6000));
   return { ok: true };
@@ -359,6 +375,10 @@ route('PUT', '/api/settings', async (req, res, u) => {
 route('POST', '/api/settings/trends', async (req, res, u) => {
   needAdmin(u);
   try { const r = await runTrendRefresh(); return { ok: true, sources: r.sources.length }; } catch (e) { throw new HttpError(e.status || 500, e.message); }
+});
+route('POST', '/api/settings/test-image', async (req, res, u) => {
+  needAdmin(u);
+  try { return await ai.testImage(aiConfig()); } catch (e) { throw new HttpError(e.status || 500, e.message); }
 });
 route('POST', '/api/settings/test', async (req, res, u) => {
   needAdmin(u);
@@ -385,7 +405,51 @@ route('POST', '/api/projects/:id/ai-design', async (req, res, u, p) => {
   touch(proj.id);
   return { created, hinweise: drafts.map(d => d.hinweise) };
 });
-route('POST', '/api/ai/render', (req, res, u) => { needUser(u); throw new HttpError(501, 'KI-Bilder folgen in Schritt 4'); });
+// KI-Fotos
+const PHOTO_DIR = path.join(DATA_DIR, 'photos');
+fs.mkdirSync(PHOTO_DIR, { recursive: true });
+let photoBusy = 0;
+// Aufräumen: Fotodateien ohne Eintrag (z. B. nach gelöschten Projekten) entfernen
+setTimeout(() => { try {
+  const known = new Set(db.prepare('SELECT file FROM photos').all().map(r => r.file));
+  fs.readdirSync(PHOTO_DIR).forEach(f => { if (!known.has(f)) fs.rm(path.join(PHOTO_DIR, f), () => {}); });
+} catch (e) { console.warn('Foto-Aufräumen:', e.message); } }, 30000).unref();
+route('POST', '/api/variants/:id/photo', async (req, res, u, p) => {
+  needUser(u);
+  const v = getVariant(Number(p.id)), b = await readJson(req, 12e6);
+  if (photoBusy >= 2) throw new HttpError(429, 'Es werden gerade schon Fotos erstellt. Bitte kurz warten.');
+  photoBusy++;
+  let buf;
+  try { buf = await ai.photo(aiConfig(), b.image, JSON.parse(v.plan_json || '{}')); }
+  catch (e) { throw new HttpError(e.status || 500, e.message || 'Fehler bei der Bild-KI'); }
+  finally { photoBusy--; }
+  const file = `v${v.id}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.jpg`;
+  fs.writeFileSync(path.join(PHOTO_DIR, file), buf);
+  const id = Number(db.prepare('INSERT INTO photos (variant_id, file) VALUES (?, ?)').run(v.id, file).lastInsertRowid);
+  touch(v.project_id);
+  return { id };
+});
+route('GET', '/api/variants/:id/photos', (req, res, u, p) => {
+  needUser(u); getVariant(Number(p.id));
+  return db.prepare('SELECT id, created_at FROM photos WHERE variant_id = ? ORDER BY id DESC').all(Number(p.id));
+});
+route('GET', '/api/photos/:id', (req, res, u, p) => {
+  needUser(u);
+  const ph = db.prepare('SELECT * FROM photos WHERE id = ?').get(Number(p.id));
+  if (!ph) throw new HttpError(404, 'Foto nicht gefunden');
+  const f = path.join(PHOTO_DIR, path.basename(ph.file));
+  if (!fs.existsSync(f)) throw new HttpError(404, 'Fotodatei fehlt');
+  res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, max-age=31536000, immutable' });
+  fs.createReadStream(f).pipe(res);
+});
+route('DELETE', '/api/photos/:id', (req, res, u, p) => {
+  needUser(u);
+  const ph = db.prepare('SELECT * FROM photos WHERE id = ?').get(Number(p.id));
+  if (!ph) throw new HttpError(404, 'Foto nicht gefunden');
+  db.prepare('DELETE FROM photos WHERE id = ?').run(ph.id);
+  fs.rm(path.join(PHOTO_DIR, path.basename(ph.file)), () => {});
+  return { ok: true };
+});
 
 // ---------- Statische Dateien ----------
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',

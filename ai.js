@@ -332,4 +332,73 @@ async function refreshTrends(cfg) {
   return { text: text.slice(0, 6000), sources: [...seen.values()].slice(0, 15) };
 }
 
-module.exports = { design, test, refreshTrends, listModels, conflicts, normalize, describe, AiError, CATALOG };
+// ---------- KI-Fotos: 3D-Ansicht → fotorealistisches Bild (OpenAI Bild-KI) ----------
+const EN = {
+  wall: { weiss: 'glossy white 30x60 cm ceramic wall tiles', beton: 'large-format warm grey concrete-look porcelain wall tiles 60x120 cm', salbei: 'sage green glossy subway wall tiles 7.5x15 cm in a brick pattern', marmor: 'white marble-look large-format wall tiles 60x120 cm with soft grey veining', navy: 'deep navy blue handmade zellige wall tiles 10x10 cm with irregular glossy glaze' },
+  floor: { eiche: 'natural oak wood-look porcelain plank floor tiles 20x120 cm', anthrazit: 'anthracite stone-look floor tiles 60x60 cm', terrazzo: 'light terrazzo floor tiles 60x60 cm with small colourful chips', marmorb: 'white marble-look floor tiles 60x60 cm' },
+  finish: { chrom: 'polished chrome', edel: 'brushed stainless steel', schwarz: 'matte black', gold: 'brushed gold' },
+  furn: { eiche: 'natural oak wood', weiss: 'high-gloss white lacquer', anth: 'matte anthracite', gruen: 'matte sage green' },
+  grout: { auto: 'matching', hell: 'light', grau: 'grey', dunkel: 'dark anthracite' },
+  obj: { 'wc:wand': 'wall-hung rimless white toilet with flush plate on a tiled pre-wall', 'wc:stand': 'floor-standing white toilet with ceramic cistern', 'wc:dusch': 'wall-hung shower toilet (bidet toilet) on a tiled pre-wall',
+    'wt:w60': '60 cm washbasin with wall-hung vanity cabinet', 'wt:w80': '80 cm washbasin with wall-hung vanity cabinet', 'wt:w120': '120 cm double washbasin with wall-hung vanity', 'wt:auf': 'round countertop vessel basin on a 100 cm wall-hung console',
+    'sp:led': 'backlit LED mirror', 'sp:schrank': 'mirror cabinet with LED light', 'sp:rund': 'round mirror with soft backlight',
+    'du:walk': 'level-access walk-in shower with a frameless glass panel and linear floor drain', 'du:eck': 'corner shower with frameless glass door', 'du:nische': 'alcove shower with a frameless glass door',
+    'wa:r170': 'built-in bathtub with tiled front', 'wa:r180': 'large built-in bathtub with tiled front', 'wa:frei': 'freestanding oval white bathtub',
+    'hk:hk': 'heated towel rail', 'vw:v': 'tiled half-height pre-wall with a shelf', 'ni:n': 'tiled wall niche with LED strip', 'fe:f': 'window with natural daylight', 'tu:t': 'interior door' },
+  arm: { 'wt:stand': 'basin mixer tap', 'wt:hoch': 'tall basin mixer tap', 'wt:wand': 'wall-mounted basin tap', 'du:regen': 'exposed rain shower set', 'du:up': 'concealed thermostatic shower with large ceiling rain head', 'du:hand': 'shower rail with hand shower', 'wa:wand': 'wall-mounted bath mixer', 'wa:stand': 'floor-standing freestanding bath mixer' },
+};
+function photoPrompt(plan) {
+  const p = plan || {}, items = p.items || [];
+  const fin = EN.finish[p.finish] || 'polished chrome';
+  const objs = [...new Set(items.map(it => {
+    const o = EN.obj[it.type + ':' + it.v]; if (!o) return null;
+    const a = it.arm && EN.arm[it.type + ':' + it.arm];
+    return a ? `${o} (${fin} ${a})` : o;
+  }).filter(Boolean))];
+  const accent = p.accent != null && EN.wall[p.accentTile] ? ` One accent wall is clad in ${EN.wall[p.accentTile]}.` : '';
+  const half = p.tileH === 'halb' ? ' Wall tiles go up to 1.20 m height, above that the walls are painted in a soft warm white.' : ' Wall tiles go up to the ceiling.';
+  const light = p.mood === 'abend' ? 'Warm, cosy evening light from recessed ceiling spots and the backlit mirror.' : 'Soft natural daylight' + (items.some(i => i.type === 'fe') ? ' coming through the window' : '') + ', complemented by recessed ceiling spots.';
+  return `Turn this simple 3D render into a photorealistic interior photograph of a newly renovated bathroom in a German home.
+Keep EXACTLY the same camera position, perspective, room shape, wall positions, window and door positions, and the position, size and type of every fixture shown in the render. Do not add, remove or move fixtures. Do not change the layout.
+Replace the plain 3D look with real materials, real textures, physically correct light, soft shadows and natural reflections.
+Materials: walls in ${EN.wall[p.wall] || EN.wall.weiss} with ${EN.grout[p.grout] || 'matching'} grout.${half}${accent} Floor in ${EN.floor[p.floor] || EN.floor.eiche}. Vanity furniture in ${EN.furn[p.furn] || 'natural oak wood'}. All taps and metal fittings in ${fin}.
+Fixtures in this bathroom (show only those that are visible in the render): ${objs.join('; ') || 'standard bathroom fixtures'}.
+${light}
+${p.deko === false ? 'No decoration.' : 'Tasteful minimal styling: folded towels, a small plant, a soap dispenser.'}
+Style: high-end architectural interior photography, shot on a full-frame camera with a 24 mm lens, eye level, sharp, natural colours, no people, no text, no watermark, no logos.`;
+}
+async function photo(cfg, dataUrl, plan) {
+  if (!cfg.openaiKey) throw new AiError(400, 'Für echte Fotos fehlt noch der Schlüssel für die Bild-KI (OpenAI). Ein Admin kann ihn unter „KI“ eintragen.');
+  if (!/^data:image\/(jpeg|png|webp);base64,/.test(dataUrl || '')) throw new AiError(400, 'Kein gültiges Bild der Ansicht erhalten.');
+  const base = (process.env.OPENAI_BASE_URL || 'https://api.openai.com').replace(/\/$/, '');
+  const body = { images: [{ image_url: dataUrl }], prompt: photoPrompt(plan), size: '1536x1024', quality: cfg.imageQuality || 'high', output_format: 'jpeg', n: 1 };
+  if (cfg.imageModel) body.model = cfg.imageModel;
+  let r;
+  try { r = await fetch(base + '/v1/images/edits', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + cfg.openaiKey }, body: JSON.stringify(body), signal: AbortSignal.timeout(300000) }); }
+  catch { throw new AiError(504, 'Die Bild-KI hat nicht rechtzeitig geantwortet. Bitte noch einmal versuchen.'); }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const msg = data?.error?.message || '', code = data?.error?.code || '';
+    const orig = msg ? ` (OpenAI: ${msg})` : ` (Fehlercode ${r.status})`;
+    if (r.status === 401) throw new AiError(502, 'Der Schlüssel für die Bild-KI ist ungültig. Bitte unter „KI“ prüfen.' + orig);
+    if (code === 'insufficient_quota' || /quota|billing|credit/i.test(msg)) throw new AiError(402, 'Das Guthaben bei OpenAI reicht nicht. Bitte unter platform.openai.com → Billing aufladen.' + orig);
+    if (/verif/i.test(msg)) throw new AiError(502, 'OpenAI verlangt für die Bild-KI eine Verifizierung deiner Organisation (platform.openai.com → Settings → Organization).' + orig);
+    if (r.status === 429) throw new AiError(503, 'Die Bild-KI ist gerade ausgelastet. Bitte gleich noch einmal versuchen.' + orig);
+    throw new AiError(502, 'Die Bild-KI hat einen Fehler gemeldet.' + orig);
+  }
+  const b64 = data?.data?.[0]?.b64_json;
+  if (!b64) throw new AiError(502, 'Die Bild-KI hat kein Bild geliefert. Bitte noch einmal versuchen.');
+  return Buffer.from(b64, 'base64');
+}
+async function testImage(cfg) {
+  if (!cfg.openaiKey) throw new AiError(400, 'Kein Schlüssel für die Bild-KI eingetragen.');
+  const base = (process.env.OPENAI_BASE_URL || 'https://api.openai.com').replace(/\/$/, '');
+  let r; try { r = await fetch(base + '/v1/models', { headers: { authorization: 'Bearer ' + cfg.openaiKey }, signal: AbortSignal.timeout(20000) }); } catch { throw new AiError(504, 'Keine Verbindung zu OpenAI.'); }
+  const d = await r.json().catch(() => ({}));
+  if (r.status === 401) throw new AiError(400, 'Der Schlüssel ist ungültig.');
+  if (!r.ok) throw new AiError(400, 'OpenAI meldet: ' + (d?.error?.message || r.status));
+  const img = (d.data || []).map(m => m.id).filter(id => /image/.test(id));
+  return { ok: true, models: img };
+}
+
+module.exports = { design, test, refreshTrends, listModels, photo, photoPrompt, testImage, conflicts, normalize, describe, AiError, CATALOG };
