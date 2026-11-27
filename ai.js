@@ -138,7 +138,7 @@ Gestaltung:
 - Wähle Fliesen, Fugenfarbe, Armaturen-Oberfläche und Möbelfront so, dass sie zusammen stimmig wirken.
 - Die Beschreibung ist für den Endkunden: 2–3 kurze, freundliche Sätze auf Deutsch, was den Entwurf ausmacht und warum er zu den Wünschen passt. Keine Fachbegriffe, keine Maße.`;
 
-function describe(base, wishes, trends) {
+function describe(base, wishes, trends, webTrends) {
   const W = walls(base.pts), n = W.length, A = Math.abs(area(base.pts));
   const lines = [];
   const U = W.reduce((s, w) => s + w.len, 0);
@@ -153,11 +153,12 @@ function describe(base, wishes, trends) {
     else lines.push(`Fenster auf W${it.wall + 1}: von ${de(it.t - w / 2)} bis ${de(it.t + w / 2)} m, Brüstung ${de(it.y ?? 1.1)} m, Höhe ${de(it.h ?? 1)} m.`);
   });
   lines.push('\nKUNDENWÜNSCHE');
-  const labels = { stil: 'Stil', farben: 'Farben und Materialien', budget: 'Budget für Material (Euro)', nutzung: 'Dusche/Wanne', personen: 'Personen im Haushalt', barrierefrei: 'Barrierefrei/altersgerecht', waschtisch: 'Waschtisch', wc: 'WC', stauraum: 'Stauraum', sonstiges: 'Weitere Wünsche' };
+  const labels = { freitext: 'Wunsch des Kunden in eigenen Worten', stil: 'Stil', farben: 'Farben und Materialien', budget: 'Budget für Material (Euro)', nutzung: 'Dusche/Wanne', personen: 'Personen im Haushalt', barrierefrei: 'Barrierefrei/altersgerecht', waschtisch: 'Waschtisch', wc: 'WC', stauraum: 'Stauraum', sonstiges: 'Weitere Wünsche' };
   let any = false;
   Object.entries(labels).forEach(([k, l]) => { const v = wishes && wishes[k]; if (v !== undefined && v !== null && String(v).trim() !== '') { lines.push(`${l}: ${String(v).slice(0, 1500)}`); any = true; } });
   if (!any) lines.push('Keine besonderen Wünsche angegeben. Plane zeitgemäß und praktisch.');
-  if (trends && trends.trim()) lines.push('\nAKTUELLE TRENDS UND HAUSREGELN DER FIRMA (bitte berücksichtigen)\n' + trends.trim().slice(0, 6000));
+  if (webTrends && webTrends.trim()) lines.push('\nAKTUELLE BADTRENDS (aus der Internet-Recherche, als Inspiration nutzen, soweit sie zu den Wünschen passen)\n' + webTrends.trim().slice(0, 6000));
+  if (trends && trends.trim()) lines.push('\nHAUSREGELN DER FIRMA (immer beachten)\n' + trends.trim().slice(0, 6000));
   lines.push('\nKATALOG (Breite × Tiefe in m, Preis in Euro)');
   Object.entries(CATALOG).forEach(([typ, c]) => {
     lines.push(`${typ} = ${c.label}: ` + Object.entries(c.vars).map(([id, v]) => `${id} „${v.name}“ ${de(v.w)} × ${typ === 'ni' ? de(v.h) + ' hoch' : de(v.d)}${v.perM ? `, ${v.perM} €/m` : `, ${v.price} €`}`).join('; '));
@@ -180,7 +181,7 @@ const TOOL = {
   input_schema: {
     type: 'object', required: ['entwuerfe'],
     properties: {
-      entwuerfe: { type: 'array', minItems: 1, maxItems: 4, items: {
+      entwuerfe: { type: 'array', minItems: 1, maxItems: 5, items: {
         type: 'object', required: ['titel', 'beschreibung', 'material', 'objekte'],
         properties: {
           titel: { type: 'string', description: 'Kurzer Name, 2–4 Wörter, z. B. „Warm & natürlich“' },
@@ -210,15 +211,15 @@ const TOOL = {
 };
 
 class AiError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
-async function callClaude(cfg, messages) {
+async function callClaude(cfg, messages, timeoutMs = 180000) {
   const base = (process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com').replace(/\/$/, '');
   let r;
   try {
     r = await fetch(base + '/v1/messages', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': cfg.key, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: cfg.model, max_tokens: 12000, system: SYSTEM, tools: [TOOL], tool_choice: { type: 'tool', name: TOOL.name }, messages }),
-      signal: AbortSignal.timeout(240000),
+      body: JSON.stringify({ model: cfg.model, max_tokens: 16000, system: SYSTEM, tools: [TOOL], tool_choice: { type: 'tool', name: TOOL.name }, messages }),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (e) { throw new AiError(504, 'Die KI hat nicht rechtzeitig geantwortet. Bitte noch einmal versuchen.'); }
   const data = await r.json().catch(() => ({}));
@@ -238,7 +239,7 @@ async function callClaude(cfg, messages) {
 async function design(cfg, base, wishes, count = 3) {
   if (!cfg.key) throw new AiError(400, 'Es ist noch kein KI-Schlüssel hinterlegt. Ein Admin kann ihn unter „KI“ eintragen.');
   if (!base || !Array.isArray(base.pts) || base.pts.length < 3) throw new AiError(400, 'Bitte zuerst den Grundriss zeichnen und bemaßen.');
-  const prompt = describe(base, wishes, cfg.trends) + `\n\nAUFGABE\nErstelle ${count} unterschiedliche Entwürfe für dieses Bad.`;
+  const prompt = describe(base, wishes, cfg.trends, cfg.webTrends) + `\n\nAUFGABE\nErstelle ${count} unterschiedliche Entwürfe für dieses Bad. Mindestens einer davon soll einen aktuellen Trend aufgreifen, einer soll besonders preisbewusst sein.`;
   const messages = [{ role: 'user', content: prompt }];
   let { use, raw } = await callClaude(cfg, messages);
   let plans = use.input.entwuerfe.map(e => ({ e, plan: normalize(base, e) }));
@@ -247,7 +248,7 @@ async function design(cfg, base, wishes, count = 3) {
     const text = 'Beim Prüfen sind diese Probleme aufgefallen:\n' + problems.map(p => `Entwurf ${p.i + 1} „${plans[p.i].e.titel}“:\n- ` + p.list.join('\n- ')).join('\n') +
       `\n\nBitte korrigiere die Platzierung und speichere ALLE ${plans.length} Entwürfe erneut (Stil und Materialien beibehalten).`;
     try {
-      const fix = await callClaude(cfg, [...messages, { role: 'assistant', content: raw.content }, { role: 'user', content: [{ type: 'tool_result', tool_use_id: use.id, content: text }] }]);
+      const fix = await callClaude(cfg, [...messages, { role: 'assistant', content: raw.content }, { role: 'user', content: [{ type: 'tool_result', tool_use_id: use.id, content: text }] }], 150000);
       const fixed = fix.use.input.entwuerfe.map(e => ({ e, plan: normalize(base, e) }));
       if (fixed.length) plans = fixed;
     } catch (e) { /* erste Version behalten */ }
@@ -269,4 +270,51 @@ async function test(cfg) {
   return { ok: true, model: data.model || cfg.model };
 }
 
-module.exports = { design, test, conflicts, normalize, describe, AiError, CATALOG };
+
+// ---------- Trend-Recherche im Internet ----------
+const TREND_PROMPT = () => `Recherchiere im Internet die aktuellen Trends für Badgestaltung und Badsanierung in Deutschland (heute ist ${new Date().toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })}).
+Nutze möglichst aktuelle Quellen: Fachmessen wie ISH, Hersteller (z. B. Villeroy & Boch, Duravit, Hansgrohe, Grohe, Geberit, Kaldewei), Fliesenhersteller, Fachpresse und Wohnmagazine.
+
+Schreibe danach eine kompakte Zusammenfassung auf Deutsch als Stichpunkte, gegliedert in:
+- Farben und Oberflächen (Fliesen, Wände, Fugen)
+- Armaturen und Metall-Oberflächen
+- Dusche, Wanne, WC, Waschtisch
+- Licht, Stauraum, Nischen
+- Altersgerecht und barrierefrei
+- Was gerade aus der Mode kommt
+
+Höchstens 25 Stichpunkte, jeder kurz und konkret, so dass ein Badplaner sie direkt umsetzen kann. Keine Einleitung, kein Fazit.`;
+async function refreshTrends(cfg) {
+  if (!cfg.key) throw new AiError(400, 'Es ist noch kein KI-Schlüssel hinterlegt.');
+  const base = (process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com').replace(/\/$/, '');
+  const messages = [{ role: 'user', content: TREND_PROMPT() }];
+  const tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 8, user_location: { type: 'approximate', country: 'DE', timezone: 'Europe/Berlin' } }];
+  let content = [];
+  for (let round = 0; round < 5; round++) {
+    let r;
+    try {
+      r = await fetch(base + '/v1/messages', { method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': cfg.key, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: cfg.model, max_tokens: 6000, tools, messages }), signal: AbortSignal.timeout(240000) });
+    } catch { throw new AiError(504, 'Die Trend-Recherche hat zu lange gedauert. Bitte später noch einmal.'); }
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const msg = data?.error?.message || '';
+      if (r.status === 401) throw new AiError(502, 'Der KI-Schlüssel ist ungültig.');
+      if (/web search/i.test(msg)) throw new AiError(502, 'Die Websuche ist in deinem Anthropic-Konto ausgeschaltet. Bitte in der Anthropic Console unter Settings → Capabilities einschalten.');
+      if (r.status === 400 && /credit|balance|billing/i.test(msg)) throw new AiError(402, 'Das KI-Guthaben ist aufgebraucht.');
+      throw new AiError(502, 'KI-Fehler: ' + (msg || r.status));
+    }
+    content = content.concat(data.content || []);
+    if (data.stop_reason !== 'pause_turn') break;
+    messages.push({ role: 'assistant', content: data.content });
+  }
+  const texts = content.filter(c => c.type === 'text');
+  const text = texts.map(c => c.text).join('').replace(/\n{3,}/g, '\n\n').trim();
+  if (text.length < 80) throw new AiError(502, 'Die Recherche hat kein brauchbares Ergebnis geliefert. Bitte noch einmal versuchen.');
+  const seen = new Map();
+  texts.forEach(c => (c.citations || []).forEach(x => { if (x.url && !seen.has(x.url)) seen.set(x.url, { url: x.url, title: x.title || x.url }); }));
+  if (!seen.size) content.filter(c => c.type === 'web_search_tool_result' && Array.isArray(c.content)).forEach(c => c.content.forEach(x => { if (x.url && !seen.has(x.url)) seen.set(x.url, { url: x.url, title: x.title || x.url }); }));
+  return { text: text.slice(0, 6000), sources: [...seen.values()].slice(0, 15) };
+}
+
+module.exports = { design, test, refreshTrends, conflicts, normalize, describe, AiError, CATALOG };

@@ -66,7 +66,25 @@ try { db.exec(`ALTER TABLE variants ADD COLUMN note TEXT NOT NULL DEFAULT ''`); 
 const DEFAULT_MODEL = 'claude-sonnet-5-5';
 const getSetting = (k, d = '') => { const r = db.prepare('SELECT value FROM settings WHERE key = ?').get(k); return r ? r.value : d; };
 const setSetting = (k, v) => db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(k, v);
-const aiConfig = () => ({ key: getSetting('anthropic_key') || process.env.ANTHROPIC_API_KEY || '', model: getSetting('ai_model') || DEFAULT_MODEL, trends: getSetting('ai_trends') });
+const aiConfig = () => ({ key: getSetting('anthropic_key') || process.env.ANTHROPIC_API_KEY || '', model: getSetting('ai_model') || DEFAULT_MODEL, trends: getSetting('ai_trends'), webTrends: getSetting('web_trends') });
+let trendsBusy = false;
+async function runTrendRefresh() {
+  if (trendsBusy) throw new ai.AiError(429, 'Die Trend-Recherche läuft gerade schon.');
+  trendsBusy = true;
+  try {
+    const r = await ai.refreshTrends(aiConfig());
+    setSetting('web_trends', r.text); setSetting('web_trends_sources', JSON.stringify(r.sources)); setSetting('web_trends_at', String(Date.now()));
+    console.log(`Trends aktualisiert (${r.sources.length} Quellen)`);
+    return r;
+  } finally { trendsBusy = false; }
+}
+// Einmal pro Woche automatisch frische Trends holen (geprüft beim Start und alle 6 Stunden)
+const trendCheck = () => {
+  const c = aiConfig(), at = Number(getSetting('web_trends_at', '0'));
+  if (c.key && Date.now() - at > 7 * 864e5) runTrendRefresh().catch(e => console.warn('Trend-Recherche fehlgeschlagen:', e.message));
+};
+setTimeout(trendCheck, 60000).unref();
+setInterval(trendCheck, 6 * 36e5).unref();
 
 // ---------- Passwörter & Sitzungen ----------
 function hashPassword(pw) {
@@ -236,7 +254,8 @@ route('GET', '/api/projects/:id', (req, res, u, p) => {
   const proj = projectOut(getProject(Number(p.id)));
   proj.variants = db.prepare('SELECT * FROM variants WHERE project_id = ? ORDER BY id').all(proj.id).map(v => {
     let room = false; try { const pl = JSON.parse(v.plan_json || '{}'); room = Array.isArray(pl.pts) && pl.pts.length >= 3; } catch {}
-    return { ...variantOut(v, false), has_room: room };
+    let plan = null; if (room) { try { plan = JSON.parse(v.plan_json); } catch {} }
+    return { ...variantOut(v, false), has_room: room, plan };
   });
   return proj;
 });
@@ -307,7 +326,9 @@ route('DELETE', '/api/variants/:id', (req, res, u, p) => {
 route('GET', '/api/settings', (req, res, u) => {
   needAdmin(u);
   const c = aiConfig();
-  return { has_key: !!c.key, key_hint: c.key ? c.key.slice(0, 10) + '…' + c.key.slice(-4) : '', model: c.model, trends: c.trends };
+  let sources = []; try { sources = JSON.parse(getSetting('web_trends_sources', '[]')); } catch {}
+  return { has_key: !!c.key, key_hint: c.key ? c.key.slice(0, 10) + '…' + c.key.slice(-4) : '', model: c.model, trends: c.trends,
+    web_trends: c.webTrends, web_trends_sources: sources, web_trends_at: Number(getSetting('web_trends_at', '0')) || null };
 });
 route('PUT', '/api/settings', async (req, res, u) => {
   needAdmin(u);
@@ -316,11 +337,16 @@ route('PUT', '/api/settings', async (req, res, u) => {
     const k = b.key.trim();
     if (!/^sk-ant-[A-Za-z0-9_\-]{20,}$/.test(k)) throw new HttpError(400, 'Der Schlüssel muss mit sk-ant- beginnen.');
     setSetting('anthropic_key', k);
+    if (!getSetting('web_trends')) setTimeout(() => runTrendRefresh().catch(e => console.warn('Trend-Recherche fehlgeschlagen:', e.message)), 2000);
   }
   if (b.remove_key === true) setSetting('anthropic_key', '');
   if (typeof b.model === 'string') setSetting('ai_model', str(b.model, 80) || DEFAULT_MODEL);
   if (typeof b.trends === 'string') setSetting('ai_trends', b.trends.slice(0, 6000));
   return { ok: true };
+});
+route('POST', '/api/settings/trends', async (req, res, u) => {
+  needAdmin(u);
+  try { const r = await runTrendRefresh(); return { ok: true, sources: r.sources.length }; } catch (e) { throw new HttpError(e.status || 500, e.message); }
 });
 route('POST', '/api/settings/test', async (req, res, u) => {
   needAdmin(u);
@@ -338,7 +364,7 @@ route('POST', '/api/projects/:id/ai-design', async (req, res, u, p) => {
   if (aiBusy >= 3) throw new HttpError(429, 'Es laufen gerade schon mehrere KI-Planungen. Bitte kurz warten.');
   aiBusy++;
   let drafts;
-  try { drafts = await ai.design(aiConfig(), base, JSON.parse(proj.wishes_json || '{}'), Math.min(Math.max(Number(b.count) || 3, 1), 4)); }
+  try { drafts = await ai.design(aiConfig(), base, JSON.parse(proj.wishes_json || '{}'), Math.min(Math.max(Number(b.count) || 3, 1), 5)); }
   catch (e) { throw new HttpError(e.status || 500, e.message || 'KI-Fehler'); }
   finally { aiBusy--; }
   const ins = db.prepare(`INSERT INTO variants (project_id, name, plan_json, source, note) VALUES (?, ?, ?, 'ki', ?)`);

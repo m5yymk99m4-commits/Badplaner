@@ -62,6 +62,25 @@ textarea{min-height:90px;resize:vertical}
 .prog b{color:var(--pet)}
 .vnote{font-size:14px;color:var(--ink);margin:4px 0 0;max-width:60ch}
 .warnbox{font-size:13.5px;color:#7a5414;background:#f6ead3;border-radius:8px;padding:8px 10px;margin-top:8px}
+.ideas{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.idea{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.idea svg{display:block;width:100%;height:170px;background:light-dark(#eef2f1,#0f1a1a)}
+.idea .in{padding:12px 14px 14px;display:flex;flex-direction:column;gap:6px;flex:1}
+.idea b{font:700 17px Archivo,sans-serif}
+.idea p{margin:0;font-size:14px;color:var(--ink)}
+.idea .acts{margin-top:auto;padding-top:6px}
+.idea .btn{min-height:42px;padding:9px 14px;font-size:14px}
+.stepc{display:grid;grid-template-columns:30px minmax(0,1fr);gap:0 12px;margin-bottom:14px}
+.stepc .n{width:30px;height:30px;border-radius:50%;background:var(--pet);color:#fff;font:800 15px Archivo,sans-serif;display:grid;place-items:center}
+.stepc h3{font:700 17px Archivo,sans-serif;margin:3px 0 8px}
+.room{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.room svg{width:150px;height:110px;flex:none;background:light-dark(#eef2f1,#0f1a1a);border-radius:10px}
+details.more{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+details.more summary{cursor:pointer;font-weight:600;color:var(--pet);min-height:36px;display:flex;align-items:center}
+.count{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:12px;font-size:14px}
+.trend{white-space:pre-wrap;font-size:14px;line-height:1.5;background:var(--bg);border-radius:10px;padding:12px;max-height:340px;overflow:auto;margin:10px 0 0}
+.src{font-size:13px;margin:8px 0 0;padding-left:18px}
+.src li{margin:3px 0;overflow-wrap:anywhere}
 .login{max-width:400px;margin:10vh auto 0}
 .login h1{margin-bottom:6px}
 .muted{color:var(--mute)}
@@ -119,52 +138,83 @@ const WISH={
   waschtisch:{l:'Waschtisch',o:['Einzel','Doppel','Egal']},
   wc:{l:'WC',o:['Wand-WC','Dusch-WC','Egal']},
   stauraum:{l:'Stauraum',o:['Wenig','Normal','Viel']}};
-let aiTimer=0;
+// Mini-Grundriss als Vorschaubild
+const DIM={wc:{wand:[.37,.54],stand:[.37,.68],dusch:[.4,.58]},wt:{w60:[.6,.46],w80:[.8,.48],w120:[1.2,.48],auf:[1,.5]},du:{walk:[1.2,.9],eck:[.9,.9],nische:[1,.9]},wa:{r170:[1.7,.75],r180:[1.8,.8],frei:[1.7,.95]},hk:{hk:[.5,.1]},vw:{v:[1.2,.2]}};
+const FLOORC={eiche:'#c79a6a',anthrazit:'#55585c',terrazzo:'#e3ddd2',marmorb:'#eeebe5'},WALLC={weiss:'#3b4544',beton:'#8d8b85',salbei:'#6f8c70',marmor:'#a9a59d',navy:'#23395b'},FURNC={eiche:'#a57a4f',weiss:'#f3f3f1',anth:'#3a3c40',gruen:'#7d917d'};
+function planThumb(pl){
+  if(!pl||!pl.pts||pl.pts.length<3)return'<svg viewBox="0 0 1 1"></svg>';
+  const P=pl.pts,xs=P.map(p=>p[0]),zs=P.map(p=>p[1]),pad=.25,x0=Math.min(...xs)-pad,z0=Math.min(...zs)-pad,vw=Math.max(...xs)-x0+pad,vh=Math.max(...zs)-z0+pad;
+  const W=P.map((A,i)=>{const B=P[(i+1)%P.length],dx=B[0]-A[0],dz=B[1]-A[1],l=Math.hypot(dx,dz)||.001;return{A,d:[dx/l,dz/l],n:[-dz/l,dx/l],l}});
+  const wc=WALLC[pl.wall]||'#3b4544';let s=`<polygon points="${P.map(p=>p.join(',')).join(' ')}" fill="${FLOORC[pl.floor]||'#eee'}" stroke="${wc}" stroke-width=".09" stroke-linejoin="miter"/>`;
+  (pl.items||[]).forEach(it=>{const w=W[it.wall];if(!w)return;const f=it.flip?-1:1,px=w.A[0]+w.d[0]*it.t,pz=w.A[1]+w.d[1]*it.t,m=`matrix(${w.d[0]*f},${w.d[1]*f},${w.n[0]},${w.n[1]},${px},${pz})`;
+    if(it.type==='tu'){const tw=it.w||.86;s+=`<g transform="${m}"><rect x="${-tw/2}" y="-.06" width="${tw}" height=".1" fill="${FLOORC[pl.floor]||'#eee'}"/><path d="M${-tw/2} 0V${tw}A${tw} ${tw} 0 0 0 ${tw/2} 0" fill="none" stroke="#7d8a88" stroke-width=".025"/></g>`;return}
+    if(it.type==='fe'){const tw=it.w||.9;s+=`<rect transform="${m}" x="${-tw/2}" y="-.06" width="${tw}" height=".08" fill="#9fd0e8"/>`;return}
+    const dm=(DIM[it.type]||{})[it.v];if(!dm)return;const ww=it.w||dm[0],dd=dm[1];
+    const fill=it.type==='wt'?(FURNC[pl.furn]||'#a57a4f'):it.type==='du'?'#cfe8ee':it.type==='hk'||it.type==='vw'?'#b9bfc0':'#ffffff';
+    const rx=it.type==='wa'&&it.v==='frei'?.3:.03;s+=`<rect transform="${m}" x="${-ww/2}" y="0" width="${ww}" height="${dd}" rx="${rx}" fill="${fill}" stroke="#55605e" stroke-width=".02"/>`;
+    if(it.type==='wc')s+=`<ellipse transform="${m}" cx="0" cy="${dd*.6}" rx=".14" ry="${dd*.33}" fill="none" stroke="#55605e" stroke-width=".02"/>`;});
+  return`<svg viewBox="${x0} ${z0} ${vw} ${vh}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${s}</svg>`}
+let aiTimer=0,ideaCount=4;
 async function viewProject(id){
-  const p=await api('/api/projects/'+id),w=p.wishes||{},rooms=p.variants.filter(v=>v.has_room);
-  const chipRow=k=>`<div class="chips" data-w="${k}">${WISH[k].o.map(o=>`<button type="button" class="${w[k]===o?'on':''}">${esc(o)}</button>`).join('')}</div>`;
+  const p=await api('/api/projects/'+id),w=p.wishes||{},rooms=p.variants.filter(v=>v.has_room&&v.source!=='ki');
+  const ideas=p.variants.filter(v=>v.source==='ki').reverse(),own=p.variants.filter(v=>v.source!=='ki');
+  const chipRow=k=>`<label>${WISH[k].l}</label><div class="chips" data-w="${k}">${WISH[k].o.map(o=>`<button type="button" class="${w[k]===o?'on':''}">${esc(o)}</button>`).join('')}</div>`;
+  const base=rooms[0];
   shell('p',`<p style="margin:0"><a href="#/" class="muted">← Alle Projekte</a></p><h1>${esc(p.customer_name)}</h1>
-    <label for="st">Status</label><select id="st">${Object.entries(STATUS).map(([k,v])=>`<option value="${k}" ${p.status===k?'selected':''}>${v}</option>`).join('')}</select>
-    <h2>KI-Planung</h2><div class="card ai" id="wf">
-      <h3>${WISH.stil.l}</h3>${chipRow('stil')}
-      <label for="wfa">Farben und Materialien</label><input id="wfa" value="${esc(w.farben)}" placeholder="z. B. hell, Holz, etwas Grün, keine Fugen">
-      <div class="grid2"><div><label for="wbu">Budget Material (€)</label><input id="wbu" type="number" inputmode="numeric" min="0" step="500" value="${esc(w.budget)}" placeholder="z. B. 8000"></div>
-      <div><label for="wpe">Personen im Haushalt</label><input id="wpe" type="number" inputmode="numeric" min="1" max="12" value="${esc(w.personen)}" placeholder="z. B. 2"></div></div>
-      <h3>${WISH.nutzung.l}</h3>${chipRow('nutzung')}<h3>${WISH.barrierefrei.l}</h3>${chipRow('barrierefrei')}
-      <h3>${WISH.waschtisch.l}</h3>${chipRow('waschtisch')}<h3>${WISH.wc.l}</h3>${chipRow('wc')}<h3>${WISH.stauraum.l}</h3>${chipRow('stauraum')}
-      <label for="wso">Weitere Wünsche</label><textarea id="wso" placeholder="z. B. Fenster soll frei bleiben, Waschmaschine muss rein, Kinder im Haus">${esc(w.sonstiges)}</textarea>
-      <div class="acts"><button class="btn ghost" id="wsave" type="button">Wünsche speichern</button></div>
-      <h3>Entwürfe erstellen</h3>
-      ${rooms.length?`<div class="grid2"><div><label for="abase">Grundriss aus</label><select id="abase">${rooms.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('')}</select></div>
-        <div><label for="acnt">Anzahl Entwürfe</label><select id="acnt"><option>2</option><option selected>3</option><option>4</option></select></div></div>
-        <button class="btn big" id="ago" type="button" style="margin-top:14px">✦ KI-Entwürfe erstellen</button>`
-      :`<p class="muted" style="margin:6px 0 0">Zuerst den Raum aufnehmen: bei einer Variante auf <b>Planen</b> tippen, Grundriss zeichnen und bemaßen, Tür und Fenster setzen. Danach erscheint hier der KI-Knopf.</p>`}
-      <p class="prog" id="aprog"></p><p class="err" id="aerr"></p></div>
-    <h2>Planungen</h2><div class="card" id="vs">${p.variants.map(v=>`<div class="var"><div><b>${esc(v.name)}</b>${v.source==='ki'?'<span class="tag">✦ KI</span>':''}${v.note?`<p class="vnote">${esc(v.note)}</p>`:''}<small>${v.has_room?'':'Noch kein Grundriss · '}Geändert ${fmt(v.updated_at)}</small></div>
+    <div class="card ai" id="wf">
+      <div class="stepc"><span class="n">1</span><div><h3>Raum</h3>
+        ${base?`<div class="room">${planThumb(base.plan)}<div>${rooms.length>1?`<label for="abase" style="margin-top:0">Grundriss aus</label><select id="abase">${rooms.map(v=>`<option value="${v.id}" ${v===base?'selected':''}>${esc(v.name)}</option>`).join('')}</select>`:`<input type="hidden" id="abase" value="${base.id}">`}
+          <div class="acts" style="margin-top:10px"><a class="btn line" id="aedit" href="planner.html?variant=${base.id}">Raum bearbeiten</a></div></div></div>`
+        :`<p style="margin:0 0 10px">Zeichne den Raum mit dem Finger und trag die Maße ein. Tür und Fenster setzt du unter „Einrichten“.</p><a class="btn" href="planner.html?variant=${own[0]?own[0].id:p.variants[0].id}">Raum aufnehmen</a>`}
+      </div></div>
+      <div class="stepc"><span class="n">2</span><div><h3>Was wünscht sich der Kunde?</h3>
+        <textarea id="wft" style="min-height:120px" placeholder="z. B. Helles, modernes Bad mit bodengleicher Dusche und viel Holz. Die Waschmaschine soll rein. Zwei Personen, eher wenig Stauraum.">${esc(w.freitext)}</textarea>
+        <p class="muted" style="font-size:13.5px;margin:6px 0 0">Tipp: Auf der iPhone-Tastatur das Mikrofon antippen und einfach sprechen.</p>
+        <label for="wbu">Budget für Material (€, optional)</label><input id="wbu" type="number" inputmode="numeric" min="0" step="500" value="${esc(w.budget)}" placeholder="z. B. 10000">
+        <details class="more"><summary>Mehr Angaben (optional)</summary>
+          ${chipRow('stil')}<label for="wfa">Farben und Materialien</label><input id="wfa" value="${esc(w.farben)}" placeholder="z. B. hell, Holz, etwas Grün">
+          <label for="wpe">Personen im Haushalt</label><input id="wpe" type="number" inputmode="numeric" min="1" max="12" value="${esc(w.personen)}">
+          ${chipRow('nutzung')}${chipRow('barrierefrei')}${chipRow('waschtisch')}${chipRow('wc')}${chipRow('stauraum')}
+          <label for="wso">Sonstiges</label><textarea id="wso">${esc(w.sonstiges)}</textarea></details>
+      </div></div>
+      <div class="stepc" style="margin-bottom:0"><span class="n">3</span><div><h3>Ideen erstellen</h3>
+        <div class="count">Anzahl Ideen:<div class="chips" id="acnt">${[3,4,5].map(n=>`<button type="button" class="${n===ideaCount?'on':''}">${n}</button>`).join('')}</div></div>
+        <button class="btn big" id="ago" type="button" ${base?'':'disabled'}>✦ Ideen erstellen</button>
+        ${base?'':'<p class="muted" style="font-size:13.5px;margin:6px 0 0">Zuerst den Raum aufnehmen (Schritt 1).</p>'}
+        <p class="prog" id="aprog"></p><p class="err" id="aerr"></p></div></div>
+    </div>
+    <h2 id="ih">Ideen der KI${ideas.length?` (${ideas.length})`:''}</h2>
+    ${ideas.length?`<div class="ideas" id="il">${ideas.map(v=>`<div class="idea">${planThumb(v.plan)}<div class="in"><b>${esc(v.name)}</b>${v.note?`<p>${esc(v.note)}</p>`:''}
+      <div class="acts"><a class="btn" href="planner.html?variant=${v.id}">Ansehen</a><button class="btn warn" data-del="${v.id}">Löschen</button></div></div></div>`).join('')}</div>`
+      :'<p class="muted">Noch keine Ideen. Raum aufnehmen, Wunsch eintragen und auf „Ideen erstellen“ tippen.</p>'}
+    <h2>Eigene Planungen</h2><div class="card" id="vs">${own.map(v=>`<div class="var"><div><b>${esc(v.name)}</b><small>${v.has_room?'':'Noch kein Grundriss · '}Geändert ${fmt(v.updated_at)}</small></div>
       <div class="acts"><a class="btn" href="planner.html?variant=${v.id}">Planen</a><button class="btn ghost" data-copy="${v.id}">Kopieren</button><button class="btn line" data-ren="${v.id}" data-name="${esc(v.name)}">Umbenennen</button>${p.variants.length>1?`<button class="btn warn" data-del="${v.id}">Löschen</button>`:''}</div></div>`).join('')}
       <div class="acts"><button class="btn ghost" id="nv">+ Leere Variante</button></div><p class="err" id="verr"></p></div>
-    <h2>Kundendaten</h2><form class="card" id="f">${custForm(p)}<div class="acts"><button class="btn">Speichern</button></div><p class="err" id="err"></p></form>
+    <h2>Kunde</h2><div class="card"><label for="st" style="margin-top:0">Status</label><select id="st">${Object.entries(STATUS).map(([k,v])=>`<option value="${k}" ${p.status===k?'selected':''}>${v}</option>`).join('')}</select>
+    <details class="more"><summary>Kundendaten bearbeiten</summary><form id="f">${custForm(p)}<div class="acts"><button class="btn">Speichern</button></div><p class="err" id="err"></p></form></details></div>
     <div class="acts"><button class="btn warn" id="dp">Projekt löschen</button></div>`);
   st.onchange=()=>api('/api/projects/'+id,'PUT',{status:st.value});
-  wf.querySelectorAll('.chips').forEach(c=>c.onclick=e=>{const b=e.target.closest('button');if(!b)return;const on=!b.classList.contains('on');c.querySelectorAll('button').forEach(x=>x.classList.remove('on'));if(on)b.classList.add('on')});
-  const wishes=()=>{const o={farben:wfa.value.trim(),budget:wbu.value,personen:wpe.value,sonstiges:wso.value.trim()};wf.querySelectorAll('.chips').forEach(c=>{const b=c.querySelector('.on');o[c.dataset.w]=b?b.textContent:''});return o};
-  const saveW=()=>api('/api/projects/'+id,'PUT',{wishes:wishes()});
-  wsave.onclick=async()=>{try{await saveW();aerr.className='ok';aerr.textContent='Wünsche gespeichert ✓'}catch(x){aerr.className='err';aerr.textContent=x.message}};
-  if(window.ago)ago.onclick=async()=>{aerr.textContent='';ago.disabled=true;const t0=Date.now();clearInterval(aiTimer);
-    const tick=()=>{if(!document.getElementById('aprog')){clearInterval(aiTimer);return}aprog.innerHTML=`<b>Die KI plant …</b> ${Math.round((Date.now()-t0)/1000)} s · dauert meist 30 bis 90 Sekunden. Seite bitte offen lassen.`};tick();aiTimer=setInterval(tick,1000);
-    try{await saveW();const r=await api(`/api/projects/${id}/ai-design`,'POST',{base_variant_id:+abase.value,count:+acnt.value});clearInterval(aiTimer);
-      await viewProject(id);const n=r.created.length,warn=(r.hinweise||[]).filter(h=>h.length).length;
-      aprog.innerHTML=`<b>${n} KI-Entwürfe erstellt ✓</b> Unten bei „Planungen“ öffnen und anpassen.`+(warn?`<span class="warnbox" style="display:block">Bei ${warn} Entwurf${warn>1?'en':''} stehen Objekte eventuell zu eng. Bitte im Planer prüfen.</span>`:'');
-      document.getElementById('vs').scrollIntoView({behavior:'smooth',block:'start'})}
+  wf.querySelectorAll('.chips[data-w]').forEach(c=>c.onclick=e=>{const b=e.target.closest('button');if(!b)return;const on=!b.classList.contains('on');c.querySelectorAll('button').forEach(x=>x.classList.remove('on'));if(on)b.classList.add('on')});
+  acnt.onclick=e=>{const b=e.target.closest('button');if(!b)return;ideaCount=+b.textContent;acnt.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b))};
+  if(window.abase&&abase.tagName==='SELECT')abase.onchange=()=>{aedit.href='planner.html?variant='+abase.value;const v=rooms.find(r=>r.id==abase.value);wf.querySelector('.room svg').outerHTML=planThumb(v.plan)};
+  const wishes=()=>{const o={freitext:wft.value.trim(),budget:wbu.value,farben:wfa.value.trim(),personen:wpe.value,sonstiges:wso.value.trim()};wf.querySelectorAll('.chips[data-w]').forEach(c=>{const b=c.querySelector('.on');o[c.dataset.w]=b?b.textContent:''});return o};
+  let saveT=0;wf.addEventListener('input',()=>{clearTimeout(saveT);saveT=setTimeout(()=>api('/api/projects/'+id,'PUT',{wishes:wishes()}).catch(()=>{}),800)});
+  ago.onclick=async()=>{if(ago.disabled)return;aerr.textContent='';ago.disabled=true;const t0=Date.now();clearInterval(aiTimer);
+    const tick=()=>{if(!document.getElementById('aprog')){clearInterval(aiTimer);return}const s=Math.round((Date.now()-t0)/1000);aprog.innerHTML=`<b>Die KI plant ${ideaCount} Ideen …</b> ${s} s · dauert meist 1 bis 3 Minuten. Bitte die Seite offen lassen.`};tick();aiTimer=setInterval(tick,1000);
+    try{await api('/api/projects/'+id,'PUT',{wishes:wishes()});const r=await api(`/api/projects/${id}/ai-design`,'POST',{base_variant_id:+abase.value,count:ideaCount});clearInterval(aiTimer);
+      await viewProject(id);const warn=(r.hinweise||[]).filter(h=>h.length).length;
+      aprog.innerHTML=`<b>${r.created.length} neue Ideen ✓</b>`+(warn?`<span class="warnbox" style="display:block">Bei ${warn} Idee${warn>1?'n':''} stehen Objekte eventuell zu eng. Bitte beim Ansehen prüfen.</span>`:'');
+      document.getElementById('ih').scrollIntoView({behavior:'smooth',block:'start'})}
     catch(x){clearInterval(aiTimer);if(document.getElementById('aprog')){aprog.textContent='';aerr.className='err';aerr.textContent=x.message;ago.disabled=false}}};
   f.onsubmit=async e=>{e.preventDefault();try{await api('/api/projects/'+id,'PUT',custData());err.className='ok';err.textContent='Gespeichert ✓'}catch(x){err.className='err';err.textContent=x.message}};
   nv.onclick=async()=>{await api(`/api/projects/${id}/variants`,'POST',{});viewProject(id)};
-  vs.onclick=async e=>{const b=e.target.closest('button');if(!b)return;try{
+  const onList=async e=>{const b=e.target.closest('button');if(!b)return;try{
     if(b.dataset.copy){await api(`/api/projects/${id}/variants`,'POST',{copy_from:+b.dataset.copy});viewProject(id)}
     if(b.dataset.ren){const row=b.closest('.var'),cur=b.dataset.name;row.innerHTML=`<input value="${esc(cur)}" style="flex:1;min-width:160px" aria-label="Neuer Name"><div class="acts"><button class="btn" data-save="${b.dataset.ren}">OK</button></div>`;row.querySelector('input').focus()}
     if(b.dataset.save){await api('/api/variants/'+b.dataset.save,'PUT',{name:b.closest('.var').querySelector('input').value});viewProject(id)}
     if(b.dataset.del){if(b.dataset.sure){await api('/api/variants/'+b.dataset.del,'DELETE');viewProject(id)}else{b.dataset.sure=1;b.textContent='Wirklich löschen?'}}
   }catch(x){verr.textContent=x.message}};
+  vs.onclick=onList;if(window.il)il.onclick=onList;
   dp.onclick=async()=>{if(!dp.dataset.sure){dp.dataset.sure=1;dp.textContent='Wirklich das ganze Projekt löschen?';return}await api('/api/projects/'+id,'DELETE');location.hash='#/'}}
 
 async function viewAi(){
@@ -176,10 +226,17 @@ async function viewAi(){
       <p class="muted" style="font-size:13.5px;margin:6px 0 0">Den Schlüssel erstellst du unter <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.</p>
       <label for="km">KI-Modell</label><input id="km" value="${esc(s.model)}" autocapitalize="off" autocorrect="off" spellcheck="false">
       <div class="acts"><button class="btn">Speichern</button><button class="btn ghost" type="button" id="kt">Verbindung testen</button></div><p class="err" id="kerr"></p></form>
-    <h2>Trend-Wissen und Hausregeln</h2><form class="card" id="tf">
-      <p class="muted" style="margin:0 0 8px;font-size:14px">Was die KI bei jeder Planung beachten soll: aktuelle Trends von Messen und Herstellern, eure Lieblingsprodukte, Regeln aus der Praxis. Am besten als kurze Stichpunkte, regelmäßig aktualisieren.</p>
-      <textarea id="tt" style="min-height:220px" maxlength="6000" placeholder="- Bodengleiche Duschen sind Standard, Duschtassen nur auf Wunsch&#10;- Schwarze Armaturen nur zu hellen Fliesen&#10;- Bei Bädern unter 5 m² immer Wand-WC&#10;- …">${esc(s.trends)}</textarea>
+    <h2>Trends aus dem Internet</h2><div class="card">
+      <p style="margin:0">${s.web_trends_at?`Zuletzt recherchiert: <b>${new Date(s.web_trends_at).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</b>. Die KI sucht einmal pro Woche selbst nach neuen Trends.`:'Noch keine Trends recherchiert. Die KI holt sie automatisch, sobald ein Schlüssel hinterlegt ist, oder du startest es hier.'}</p>
+      <div class="acts"><button class="btn ghost" type="button" id="tr">Trends jetzt recherchieren</button></div><p class="err" id="trerr"></p>
+      ${s.web_trends?`<div class="trend">${esc(s.web_trends)}</div>`:''}
+      ${(s.web_trends_sources||[]).length?`<details class="more"><summary>Quellen (${s.web_trends_sources.length})</summary><ul class="src">${s.web_trends_sources.map(x=>`<li><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a></li>`).join('')}</ul></details>`:''}</div>
+    <h2>Hausregeln</h2><form class="card" id="tf">
+      <p class="muted" style="margin:0 0 8px;font-size:14px">Was die KI immer beachten soll, egal was gerade Trend ist: eure Lieblingsprodukte und Regeln aus der Praxis. Kurze Stichpunkte reichen.</p>
+      <textarea id="tt" style="min-height:180px" maxlength="6000" placeholder="- Bei Bädern unter 5 m² immer Wand-WC&#10;- Schwarze Armaturen nur zu hellen Fliesen&#10;- Duschtassen nur auf Wunsch">${esc(s.trends)}</textarea>
       <div class="acts"><button class="btn">Speichern</button></div><p class="err" id="terr"></p></form>`);
+  tr.onclick=async()=>{tr.disabled=true;trerr.className='muted';const t0=Date.now(),iv=setInterval(()=>{trerr.textContent=`Die KI durchsucht das Internet … ${Math.round((Date.now()-t0)/1000)} s (dauert meist 1 bis 2 Minuten)`},1000);
+    try{const r=await api('/api/settings/trends','POST');clearInterval(iv);trerr.className='ok';trerr.textContent=`Fertig ✓ ${r.sources} Quellen ausgewertet.`;setTimeout(viewAi,900)}catch(x){clearInterval(iv);trerr.className='err';trerr.textContent=x.message;tr.disabled=false}};
   kf.onsubmit=async e=>{e.preventDefault();kerr.className='err';try{await api('/api/settings','PUT',{key:kk.value,model:km.value});kerr.className='ok';kerr.textContent='Gespeichert ✓';if(kk.value)setTimeout(viewAi,700)}catch(x){kerr.textContent=x.message}};
   kt.onclick=async()=>{kerr.className='muted';kerr.textContent='Teste …';try{if(kk.value||km.value!==s.model)await api('/api/settings','PUT',{key:kk.value,model:km.value});const r=await api('/api/settings/test','POST');kerr.className='ok';kerr.textContent='Verbindung klappt ✓ ('+r.model+')'}catch(x){kerr.className='err';kerr.textContent=x.message}};
   tf.onsubmit=async e=>{e.preventDefault();try{await api('/api/settings','PUT',{trends:tt.value});terr.className='ok';terr.textContent='Gespeichert ✓'}catch(x){terr.className='err';terr.textContent=x.message}}}
