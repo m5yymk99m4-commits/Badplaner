@@ -13,9 +13,9 @@
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,system-ui,sans-serif}
 .wrap{max-width:760px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 16px) max(16px,env(safe-area-inset-right,0px)) 48px max(16px,env(safe-area-inset-left,0px))}
 header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}
-.brand{font:800 18px Archivo,sans-serif;text-decoration:none;color:var(--ink)}.brand b{color:var(--pet)}
-nav{display:flex;gap:6px;flex-wrap:wrap}
-nav a{color:var(--ink);text-decoration:none;font-weight:600;font-size:14px;padding:8px 10px;border-radius:9px}
+.brand{font:800 18px Archivo,sans-serif;text-decoration:none;color:var(--ink);white-space:nowrap}.brand b{color:var(--pet)}
+nav{display:flex;gap:2px;flex-wrap:wrap;justify-content:flex-end}
+nav a{color:var(--ink);text-decoration:none;font-weight:600;font-size:14px;padding:8px 8px;border-radius:9px}
 nav a.on{background:var(--petbg);color:var(--pet)}
 h1{font:800 clamp(28px,6vw,38px)/1.05 Archivo,sans-serif;letter-spacing:-.02em;margin:6px 0 14px}
 h2{font:700 18px Archivo,sans-serif;margin:26px 0 10px}
@@ -51,6 +51,17 @@ textarea{min-height:90px;resize:vertical}
 .var .btn{min-height:40px;padding:8px 12px;font-size:14px}
 .tag{font-size:12px;font-weight:700;color:var(--brass);margin-left:6px}
 .note{margin-top:14px;padding:12px 14px;border-left:3px solid var(--brass);background:var(--petbg);border-radius:0 10px 10px 0;font-size:14px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{border:1.5px solid var(--line);background:var(--panel);color:var(--ink);font:500 14px Inter,sans-serif;padding:8px 12px;border-radius:20px;cursor:pointer;min-height:40px}
+.chips button.on{border-color:var(--pet);background:var(--petbg);color:var(--pet);font-weight:600}
+.ai{border:1.5px solid var(--pet)}
+.ai h3{font:700 16px Archivo,sans-serif;margin:18px 0 4px}
+.ai h3:first-child{margin-top:0}
+.btn.big{width:100%;min-height:54px;font-size:16px}
+.prog{margin-top:12px;font-size:14px;color:var(--mute)}
+.prog b{color:var(--pet)}
+.vnote{font-size:14px;color:var(--ink);margin:4px 0 0;max-width:60ch}
+.warnbox{font-size:13.5px;color:#7a5414;background:#f6ead3;border-radius:8px;padding:8px 10px;margin-top:8px}
 .login{max-width:400px;margin:10vh auto 0}
 .login h1{margin-bottom:6px}
 .muted{color:var(--mute)}
@@ -73,7 +84,7 @@ async function api(path,method='GET',body){
   return data}
 function shell(active,inner){
   app.innerHTML=`<header><a class="brand" href="#/">Badplaner <b>VR</b></a><nav>
-    <a href="#/" class="${active==='p'?'on':''}">Projekte</a>${me.role==='admin'?`<a href="#/team" class="${active==='t'?'on':''}">Team</a>`:''}<a href="#/konto" class="${active==='k'?'on':''}">Konto</a></nav></header>${inner}`}
+    <a href="#/" class="${active==='p'?'on':''}">Projekte</a>${me.role==='admin'?`<a href="#/team" class="${active==='t'?'on':''}">Team</a><a href="#/ki" class="${active==='a'?'on':''}">KI</a>`:''}<a href="#/konto" class="${active==='k'?'on':''}">Konto</a></nav></header>${inner}`}
 function showLogin(){
   app.innerHTML=`<div class="login"><div class="brand">Badplaner <b>VR</b></div><h1>Anmelden</h1><p class="muted">Nur für Mitarbeiter.</p>
   <form class="card" id="f"><label for="em">E-Mail</label><input id="em" type="email" autocomplete="username" autocapitalize="off" required>
@@ -101,16 +112,51 @@ function viewNew(){
   shell('p',`<h1>Neues Projekt</h1><form class="card" id="f">${custForm()}<div class="acts"><button class="btn">Projekt anlegen</button><a class="btn line" href="#/">Abbrechen</a></div><p class="err" id="err"></p></form>`);
   f.onsubmit=async e=>{e.preventDefault();try{const p=await api('/api/projects','POST',custData());location.hash='#/projekt/'+p.id}catch(x){err.textContent=x.message}}}
 
+const WISH={
+  stil:{l:'Stil',o:['Modern','Natürlich & warm','Skandinavisch','Industrial','Klassisch','Wie im Hotel']},
+  nutzung:{l:'Dusche oder Wanne',o:['Nur Dusche','Nur Wanne','Dusche und Wanne']},
+  barrierefrei:{l:'Barrierefrei / altersgerecht',o:['Nein','Ja, altersgerecht','Ja, rollstuhlgerecht']},
+  waschtisch:{l:'Waschtisch',o:['Einzel','Doppel','Egal']},
+  wc:{l:'WC',o:['Wand-WC','Dusch-WC','Egal']},
+  stauraum:{l:'Stauraum',o:['Wenig','Normal','Viel']}};
+let aiTimer=0;
 async function viewProject(id){
-  const p=await api('/api/projects/'+id);
+  const p=await api('/api/projects/'+id),w=p.wishes||{},rooms=p.variants.filter(v=>v.has_room);
+  const chipRow=k=>`<div class="chips" data-w="${k}">${WISH[k].o.map(o=>`<button type="button" class="${w[k]===o?'on':''}">${esc(o)}</button>`).join('')}</div>`;
   shell('p',`<p style="margin:0"><a href="#/" class="muted">← Alle Projekte</a></p><h1>${esc(p.customer_name)}</h1>
     <label for="st">Status</label><select id="st">${Object.entries(STATUS).map(([k,v])=>`<option value="${k}" ${p.status===k?'selected':''}>${v}</option>`).join('')}</select>
-    <h2>Planungen</h2><div class="card" id="vs">${p.variants.map(v=>`<div class="var"><div><b>${esc(v.name)}</b>${v.source==='ki'?'<span class="tag">KI</span>':''}<small>Geändert ${fmt(v.updated_at)}</small></div>
+    <h2>KI-Planung</h2><div class="card ai" id="wf">
+      <h3>${WISH.stil.l}</h3>${chipRow('stil')}
+      <label for="wfa">Farben und Materialien</label><input id="wfa" value="${esc(w.farben)}" placeholder="z. B. hell, Holz, etwas Grün, keine Fugen">
+      <div class="grid2"><div><label for="wbu">Budget Material (€)</label><input id="wbu" type="number" inputmode="numeric" min="0" step="500" value="${esc(w.budget)}" placeholder="z. B. 8000"></div>
+      <div><label for="wpe">Personen im Haushalt</label><input id="wpe" type="number" inputmode="numeric" min="1" max="12" value="${esc(w.personen)}" placeholder="z. B. 2"></div></div>
+      <h3>${WISH.nutzung.l}</h3>${chipRow('nutzung')}<h3>${WISH.barrierefrei.l}</h3>${chipRow('barrierefrei')}
+      <h3>${WISH.waschtisch.l}</h3>${chipRow('waschtisch')}<h3>${WISH.wc.l}</h3>${chipRow('wc')}<h3>${WISH.stauraum.l}</h3>${chipRow('stauraum')}
+      <label for="wso">Weitere Wünsche</label><textarea id="wso" placeholder="z. B. Fenster soll frei bleiben, Waschmaschine muss rein, Kinder im Haus">${esc(w.sonstiges)}</textarea>
+      <div class="acts"><button class="btn ghost" id="wsave" type="button">Wünsche speichern</button></div>
+      <h3>Entwürfe erstellen</h3>
+      ${rooms.length?`<div class="grid2"><div><label for="abase">Grundriss aus</label><select id="abase">${rooms.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('')}</select></div>
+        <div><label for="acnt">Anzahl Entwürfe</label><select id="acnt"><option>2</option><option selected>3</option><option>4</option></select></div></div>
+        <button class="btn big" id="ago" type="button" style="margin-top:14px">✦ KI-Entwürfe erstellen</button>`
+      :`<p class="muted" style="margin:6px 0 0">Zuerst den Raum aufnehmen: bei einer Variante auf <b>Planen</b> tippen, Grundriss zeichnen und bemaßen, Tür und Fenster setzen. Danach erscheint hier der KI-Knopf.</p>`}
+      <p class="prog" id="aprog"></p><p class="err" id="aerr"></p></div>
+    <h2>Planungen</h2><div class="card" id="vs">${p.variants.map(v=>`<div class="var"><div><b>${esc(v.name)}</b>${v.source==='ki'?'<span class="tag">✦ KI</span>':''}${v.note?`<p class="vnote">${esc(v.note)}</p>`:''}<small>${v.has_room?'':'Noch kein Grundriss · '}Geändert ${fmt(v.updated_at)}</small></div>
       <div class="acts"><a class="btn" href="planner.html?variant=${v.id}">Planen</a><button class="btn ghost" data-copy="${v.id}">Kopieren</button><button class="btn line" data-ren="${v.id}" data-name="${esc(v.name)}">Umbenennen</button>${p.variants.length>1?`<button class="btn warn" data-del="${v.id}">Löschen</button>`:''}</div></div>`).join('')}
-      <div class="acts"><button class="btn ghost" id="nv">+ Leere Variante</button><button class="btn line" disabled title="Kommt in Schritt 3">✦ KI-Entwurf (bald)</button></div><p class="err" id="verr"></p></div>
+      <div class="acts"><button class="btn ghost" id="nv">+ Leere Variante</button></div><p class="err" id="verr"></p></div>
     <h2>Kundendaten</h2><form class="card" id="f">${custForm(p)}<div class="acts"><button class="btn">Speichern</button></div><p class="err" id="err"></p></form>
     <div class="acts"><button class="btn warn" id="dp">Projekt löschen</button></div>`);
   st.onchange=()=>api('/api/projects/'+id,'PUT',{status:st.value});
+  wf.querySelectorAll('.chips').forEach(c=>c.onclick=e=>{const b=e.target.closest('button');if(!b)return;const on=!b.classList.contains('on');c.querySelectorAll('button').forEach(x=>x.classList.remove('on'));if(on)b.classList.add('on')});
+  const wishes=()=>{const o={farben:wfa.value.trim(),budget:wbu.value,personen:wpe.value,sonstiges:wso.value.trim()};wf.querySelectorAll('.chips').forEach(c=>{const b=c.querySelector('.on');o[c.dataset.w]=b?b.textContent:''});return o};
+  const saveW=()=>api('/api/projects/'+id,'PUT',{wishes:wishes()});
+  wsave.onclick=async()=>{try{await saveW();aerr.className='ok';aerr.textContent='Wünsche gespeichert ✓'}catch(x){aerr.className='err';aerr.textContent=x.message}};
+  if(window.ago)ago.onclick=async()=>{aerr.textContent='';ago.disabled=true;const t0=Date.now();clearInterval(aiTimer);
+    const tick=()=>{if(!document.getElementById('aprog')){clearInterval(aiTimer);return}aprog.innerHTML=`<b>Die KI plant …</b> ${Math.round((Date.now()-t0)/1000)} s · dauert meist 30 bis 90 Sekunden. Seite bitte offen lassen.`};tick();aiTimer=setInterval(tick,1000);
+    try{await saveW();const r=await api(`/api/projects/${id}/ai-design`,'POST',{base_variant_id:+abase.value,count:+acnt.value});clearInterval(aiTimer);
+      await viewProject(id);const n=r.created.length,warn=(r.hinweise||[]).filter(h=>h.length).length;
+      aprog.innerHTML=`<b>${n} KI-Entwürfe erstellt ✓</b> Unten bei „Planungen“ öffnen und anpassen.`+(warn?`<span class="warnbox" style="display:block">Bei ${warn} Entwurf${warn>1?'en':''} stehen Objekte eventuell zu eng. Bitte im Planer prüfen.</span>`:'');
+      document.getElementById('vs').scrollIntoView({behavior:'smooth',block:'start'})}
+    catch(x){clearInterval(aiTimer);if(document.getElementById('aprog')){aprog.textContent='';aerr.className='err';aerr.textContent=x.message;ago.disabled=false}}};
   f.onsubmit=async e=>{e.preventDefault();try{await api('/api/projects/'+id,'PUT',custData());err.className='ok';err.textContent='Gespeichert ✓'}catch(x){err.className='err';err.textContent=x.message}};
   nv.onclick=async()=>{await api(`/api/projects/${id}/variants`,'POST',{});viewProject(id)};
   vs.onclick=async e=>{const b=e.target.closest('button');if(!b)return;try{
@@ -120,6 +166,23 @@ async function viewProject(id){
     if(b.dataset.del){if(b.dataset.sure){await api('/api/variants/'+b.dataset.del,'DELETE');viewProject(id)}else{b.dataset.sure=1;b.textContent='Wirklich löschen?'}}
   }catch(x){verr.textContent=x.message}};
   dp.onclick=async()=>{if(!dp.dataset.sure){dp.dataset.sure=1;dp.textContent='Wirklich das ganze Projekt löschen?';return}await api('/api/projects/'+id,'DELETE');location.hash='#/'}}
+
+async function viewAi(){
+  const s=await api('/api/settings');
+  shell('a',`<h1>KI-Einstellungen</h1><p class="muted">Nur für Admins sichtbar. Kundenname und Adresse werden nie an die KI geschickt, nur Grundriss und Wünsche.</p>
+    <h2>Zugang zur KI</h2><form class="card" id="kf">
+      <p style="margin:0">${s.has_key?`Schlüssel hinterlegt: <b>${esc(s.key_hint)}</b>`:'<b>Noch kein Schlüssel hinterlegt.</b> Ohne Schlüssel kann die KI nicht planen.'}</p>
+      <label for="kk">${s.has_key?'Neuen Schlüssel einfügen (optional)':'Schlüssel einfügen'}</label><input id="kk" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="sk-ant-…">
+      <p class="muted" style="font-size:13.5px;margin:6px 0 0">Den Schlüssel erstellst du unter <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.</p>
+      <label for="km">KI-Modell</label><input id="km" value="${esc(s.model)}" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <div class="acts"><button class="btn">Speichern</button><button class="btn ghost" type="button" id="kt">Verbindung testen</button></div><p class="err" id="kerr"></p></form>
+    <h2>Trend-Wissen und Hausregeln</h2><form class="card" id="tf">
+      <p class="muted" style="margin:0 0 8px;font-size:14px">Was die KI bei jeder Planung beachten soll: aktuelle Trends von Messen und Herstellern, eure Lieblingsprodukte, Regeln aus der Praxis. Am besten als kurze Stichpunkte, regelmäßig aktualisieren.</p>
+      <textarea id="tt" style="min-height:220px" maxlength="6000" placeholder="- Bodengleiche Duschen sind Standard, Duschtassen nur auf Wunsch&#10;- Schwarze Armaturen nur zu hellen Fliesen&#10;- Bei Bädern unter 5 m² immer Wand-WC&#10;- …">${esc(s.trends)}</textarea>
+      <div class="acts"><button class="btn">Speichern</button></div><p class="err" id="terr"></p></form>`);
+  kf.onsubmit=async e=>{e.preventDefault();kerr.className='err';try{await api('/api/settings','PUT',{key:kk.value,model:km.value});kerr.className='ok';kerr.textContent='Gespeichert ✓';if(kk.value)setTimeout(viewAi,700)}catch(x){kerr.textContent=x.message}};
+  kt.onclick=async()=>{kerr.className='muted';kerr.textContent='Teste …';try{if(kk.value||km.value!==s.model)await api('/api/settings','PUT',{key:kk.value,model:km.value});const r=await api('/api/settings/test','POST');kerr.className='ok';kerr.textContent='Verbindung klappt ✓ ('+r.model+')'}catch(x){kerr.className='err';kerr.textContent=x.message}};
+  tf.onsubmit=async e=>{e.preventDefault();try{await api('/api/settings','PUT',{trends:tt.value});terr.className='ok';terr.textContent='Gespeichert ✓'}catch(x){terr.className='err';terr.textContent=x.message}}}
 
 async function viewTeam(){
   const users=await api('/api/users');
@@ -147,7 +210,7 @@ function viewAccount(){
 async function route(){
   if(!me){try{me=await api('/api/me')}catch(e){return showLogin()}}
   const h=location.hash.slice(1)||'/',m=h.match(/^\/projekt\/(\d+)$/);
-  try{if(m)await viewProject(+m[1]);else if(h==='/neu')viewNew();else if(h==='/team'&&me.role==='admin')await viewTeam();else if(h==='/konto')viewAccount();else await viewProjects()}
+  try{if(m)await viewProject(+m[1]);else if(h==='/neu')viewNew();else if(h==='/team'&&me.role==='admin')await viewTeam();else if(h==='/ki'&&me.role==='admin')await viewAi();else if(h==='/konto')viewAccount();else await viewProjects()}
   catch(e){if(me)shell('p',`<p class="err">${esc(e.message)}</p><a class="btn line" href="#/">Zur Übersicht</a>`)}}
 addEventListener('hashchange',route);route();
 }

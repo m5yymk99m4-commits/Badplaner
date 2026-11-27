@@ -6,4 +6,5 @@ git -c credential.helper='!f() { echo username=token; echo "password=$(cat /root
 docker compose up -d --build
 docker image prune -f >/dev/null
 ln -sf /opt/badplaner/passwort.sh /usr/local/bin/badplaner-passwort
+printf '*/10 * * * * root /bin/sh /opt/badplaner/autoupdate.sh >> /var/log/badplaner-update.log 2>&1\n' > /etc/cron.d/badplaner
 echo "Badplaner aktualisiert."

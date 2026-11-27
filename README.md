@@ -56,13 +56,14 @@ Der Server wird beim Anlegen per Startskript (Cloud config) eingerichtet: Docker
 App und Caddy für HTTPS. Danach:
 
 - **Adresse:** `https://<IP-mit-Bindestrichen>.sslip.io` – steht auf dem Server in `/root/ADRESSE.txt`
-- **Update einspielen:** in der Hetzner-Konsole `badplaner-update` eingeben
+- **Updates:** kommen automatisch – der Server prüft alle 10 Minuten GitHub (`autoupdate.sh`, Log: `/var/log/badplaner-update.log`). Sofort: `badplaner-update`
+- **Passwort vergessen:** in der Hetzner-Konsole `badplaner-passwort` eingeben
 - **Daten:** liegen im Docker-Volume `badplaner_daten`; Hetzner-Backups sichern den ganzen Server
 
 ## Fahrplan
 
 1. ✅ Grundgerüst: Login, Team, Kundenprojekte, Varianten, Planer speichert auf dem Server
-2. Online stellen: Server mieten, Domain, HTTPS
-3. KI-Planung: Kundenwünsche erfassen → KI erstellt Entwürfe im Grundriss (`/api/ai/design`)
+2. ✅ Online stellen: Hetzner-Server mit HTTPS (eigene Domain folgt)
+3. ✅ KI-Planung: Kundenwünsche erfassen → KI erstellt Entwürfe im Grundriss (`ai.js`, Schlüssel und Trend-Wissen unter „KI“)
 4. KI-Bilder: 3D-Gerüst → fotorealistische Bilder und 360°-Panoramen für die Brille (`/api/ai/render`)
 5. Produktkatalog: echte Produkte, Bilder und 3D-Modelle von Großhandel und Herstellern

@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { DatabaseSync } = require('node:sqlite');
+const ai = require('./ai');
 
 // ---------- Einstellungen (über Umgebungsvariablen) ----------
 const PORT = Number(process.env.PORT || 8080);
@@ -56,7 +57,16 @@ CREATE TABLE IF NOT EXISTS variants (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_variants_project ON variants(project_id);
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
 `);
+try { db.exec(`ALTER TABLE variants ADD COLUMN note TEXT NOT NULL DEFAULT ''`); } catch { /* Spalte existiert schon */ }
+const DEFAULT_MODEL = 'claude-sonnet-5-5';
+const getSetting = (k, d = '') => { const r = db.prepare('SELECT value FROM settings WHERE key = ?').get(k); return r ? r.value : d; };
+const setSetting = (k, v) => db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(k, v);
+const aiConfig = () => ({ key: getSetting('anthropic_key') || process.env.ANTHROPIC_API_KEY || '', model: getSetting('ai_model') || DEFAULT_MODEL, trends: getSetting('ai_trends') });
 
 // ---------- Passwörter & Sitzungen ----------
 function hashPassword(pw) {
@@ -224,7 +234,10 @@ route('POST', '/api/projects', async (req, res, u) => {
 route('GET', '/api/projects/:id', (req, res, u, p) => {
   needUser(u);
   const proj = projectOut(getProject(Number(p.id)));
-  proj.variants = db.prepare('SELECT * FROM variants WHERE project_id = ? ORDER BY id').all(proj.id).map(v => variantOut(v, false));
+  proj.variants = db.prepare('SELECT * FROM variants WHERE project_id = ? ORDER BY id').all(proj.id).map(v => {
+    let room = false; try { const pl = JSON.parse(v.plan_json || '{}'); room = Array.isArray(pl.pts) && pl.pts.length >= 3; } catch {}
+    return { ...variantOut(v, false), has_room: room };
+  });
   return proj;
 });
 route('PUT', '/api/projects/:id', async (req, res, u, p) => {
@@ -290,8 +303,50 @@ route('DELETE', '/api/variants/:id', (req, res, u, p) => {
   return { ok: true };
 });
 
-// Platzhalter für Schritt 3 und 4: KI-Planung und KI-Bilder
-route('POST', '/api/ai/design', (req, res, u) => { needUser(u); throw new HttpError(501, 'KI-Planung folgt in Schritt 3'); });
+// KI-Einstellungen (nur Admin)
+route('GET', '/api/settings', (req, res, u) => {
+  needAdmin(u);
+  const c = aiConfig();
+  return { has_key: !!c.key, key_hint: c.key ? c.key.slice(0, 10) + '…' + c.key.slice(-4) : '', model: c.model, trends: c.trends };
+});
+route('PUT', '/api/settings', async (req, res, u) => {
+  needAdmin(u);
+  const b = await readJson(req);
+  if (typeof b.key === 'string' && b.key.trim()) {
+    const k = b.key.trim();
+    if (!/^sk-ant-[A-Za-z0-9_\-]{20,}$/.test(k)) throw new HttpError(400, 'Der Schlüssel muss mit sk-ant- beginnen.');
+    setSetting('anthropic_key', k);
+  }
+  if (b.remove_key === true) setSetting('anthropic_key', '');
+  if (typeof b.model === 'string') setSetting('ai_model', str(b.model, 80) || DEFAULT_MODEL);
+  if (typeof b.trends === 'string') setSetting('ai_trends', b.trends.slice(0, 6000));
+  return { ok: true };
+});
+route('POST', '/api/settings/test', async (req, res, u) => {
+  needAdmin(u);
+  try { return await ai.test(aiConfig()); } catch (e) { throw new HttpError(e.status || 500, e.message); }
+});
+
+// KI-Planung: Entwürfe aus Kundenwünschen und Grundriss
+let aiBusy = 0;
+route('POST', '/api/projects/:id/ai-design', async (req, res, u, p) => {
+  needUser(u);
+  const proj = getProject(Number(p.id)), b = await readJson(req);
+  const v = getVariant(Number(b.base_variant_id));
+  if (v.project_id !== proj.id) throw new HttpError(400, 'Variante gehört nicht zu diesem Projekt');
+  const base = JSON.parse(v.plan_json || '{}');
+  if (aiBusy >= 3) throw new HttpError(429, 'Es laufen gerade schon mehrere KI-Planungen. Bitte kurz warten.');
+  aiBusy++;
+  let drafts;
+  try { drafts = await ai.design(aiConfig(), base, JSON.parse(proj.wishes_json || '{}'), Math.min(Math.max(Number(b.count) || 3, 1), 4)); }
+  catch (e) { throw new HttpError(e.status || 500, e.message || 'KI-Fehler'); }
+  finally { aiBusy--; }
+  const ins = db.prepare(`INSERT INTO variants (project_id, name, plan_json, source, note) VALUES (?, ?, ?, 'ki', ?)`);
+  const created = drafts.map(d => Number(ins.run(proj.id, d.name, JSON.stringify(d.plan), d.note).lastInsertRowid));
+  if (proj.status === 'neu') db.prepare(`UPDATE projects SET status = 'in_planung' WHERE id = ?`).run(proj.id);
+  touch(proj.id);
+  return { created, hinweise: drafts.map(d => d.hinweise) };
+});
 route('POST', '/api/ai/render', (req, res, u) => { needUser(u); throw new HttpError(501, 'KI-Bilder folgen in Schritt 4'); });
 
 // ---------- Statische Dateien ----------
