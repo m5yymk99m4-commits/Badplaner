@@ -103,7 +103,7 @@ async function api(path,method='GET',body){
   return data}
 function shell(active,inner){
   app.innerHTML=`<header><a class="brand" href="#/">Badplaner <b>VR</b></a><nav>
-    <a href="#/" class="${active==='p'?'on':''}">Projekte</a>${me.role==='admin'?`<a href="#/team" class="${active==='t'?'on':''}">Team</a><a href="#/ki" class="${active==='a'?'on':''}">KI</a>`:''}<a href="#/konto" class="${active==='k'?'on':''}">Konto</a></nav></header>${inner}`}
+    <a href="#/" class="${active==='p'?'on':''}">Projekte</a>${me.role==='admin'?`<a href="#/team" class="${active==='t'?'on':''}">Team</a><a href="#/ki" class="${active==='a'?'on':''}">KI</a>`:''}<a href="#/konto" class="${active==='k'?'on':''}">Konto</a></nav></header>${inner}<p class="muted" style="font-size:12.5px;margin-top:36px;text-align:center">Version ${esc(me.version||'?')}</p>`}
 function showLogin(){
   app.innerHTML=`<div class="login"><div class="brand">Badplaner <b>VR</b></div><h1>Anmelden</h1><p class="muted">Nur für Mitarbeiter.</p>
   <form class="card" id="f"><label for="em">E-Mail</label><input id="em" type="email" autocomplete="username" autocapitalize="off" required>

@@ -15,6 +15,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const COOKIE_SECURE = process.env.COOKIE_SECURE === '1'; // auf 1 setzen, sobald HTTPS läuft
 const TRUST_PROXY = process.env.TRUST_PROXY === '1'; // 1 = hinter Caddy, echte Besucher-IP aus X-Forwarded-For
 const SESSION_DAYS = 30;
+const APP_VERSION = '2026-11-27.4';
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 const db = new DatabaseSync(path.join(DATA_DIR, 'badplaner.db'));
@@ -181,7 +182,7 @@ function variantOut(v, withPlan) {
 const routes = [];
 const route = (method, pattern, fn) => routes.push({ method, re: new RegExp('^' + pattern.replace(/:(\w+)/g, '(?<$1>\\d+)') + '$'), fn });
 
-route('GET', '/api/health', () => ({ ok: true }));
+route('GET', '/api/health', () => ({ ok: true, version: APP_VERSION }));
 
 route('POST', '/api/login', async (req, res) => {
   const fwd = TRUST_PROXY && String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
@@ -200,7 +201,7 @@ route('POST', '/api/logout', (req, res, u) => {
   if (u) db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(u.tokenHash);
   send(res, 200, { ok: true }, { 'Set-Cookie': cookie('', 0) });
 });
-route('GET', '/api/me', (req, res, u) => { needUser(u); const { tokenHash, ...me } = u; return me; });
+route('GET', '/api/me', (req, res, u) => { needUser(u); const { tokenHash, ...me } = u; return { ...me, version: APP_VERSION }; });
 route('POST', '/api/me/password', async (req, res, u) => {
   needUser(u);
   const { current, next } = await readJson(req);
