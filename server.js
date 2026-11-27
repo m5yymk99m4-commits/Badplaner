@@ -15,7 +15,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const COOKIE_SECURE = process.env.COOKIE_SECURE === '1'; // auf 1 setzen, sobald HTTPS läuft
 const TRUST_PROXY = process.env.TRUST_PROXY === '1'; // 1 = hinter Caddy, echte Besucher-IP aus X-Forwarded-For
 const SESSION_DAYS = 30;
-const APP_VERSION = '2026-11-27.5';
+const APP_VERSION = '2026-11-27.6';
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 const db = new DatabaseSync(path.join(DATA_DIR, 'badplaner.db'));
@@ -322,6 +322,16 @@ route('DELETE', '/api/variants/:id', (req, res, u, p) => {
   db.prepare('DELETE FROM variants WHERE id = ?').run(v.id);
   touch(v.project_id);
   return { ok: true };
+});
+
+// Server-Status: Update-Prüfung (Datei vom Host, schreibgeschützt eingebunden)
+route('GET', '/api/system', (req, res, u) => {
+  needAdmin(u);
+  const dir = process.env.STATUS_DIR || '/app/status';
+  let status = null, log = '';
+  try { status = JSON.parse(fs.readFileSync(path.join(dir, 'status.json'), 'utf8')); } catch {}
+  try { log = fs.readFileSync(path.join(dir, 'update.log'), 'utf8').split('\n').slice(-40).join('\n'); } catch {}
+  return { version: APP_VERSION, update: status, log };
 });
 
 // KI-Einstellungen (nur Admin)

@@ -1,0 +1,10 @@
+[Unit]
+Description=Badplaner: alle 2 Minuten nach Updates schauen
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=2min
+Unit=badplaner-update.service
+
+[Install]
+WantedBy=timers.target

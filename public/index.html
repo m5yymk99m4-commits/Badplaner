@@ -251,7 +251,7 @@ async function viewTeam(){
   app.querySelector('.card').onclick=async e=>{const b=e.target.closest('[data-del]');if(!b)return;if(!b.dataset.sure){b.dataset.sure=1;b.textContent='Wirklich?';return}await api('/api/users/'+b.dataset.del,'DELETE');viewTeam()}}
 
 function viewAccount(){
-  shell('k',`<h1>Konto</h1><p>${esc(me.name)} · ${esc(me.email)}</p><h2>Passwort ändern</h2><form class="card" id="f"><label for="c1">Aktuelles Passwort</label><input id="c1" type="password" autocomplete="current-password" autocapitalize="off" spellcheck="false" required>
+  shell('k',`<h1>Konto</h1><p>${esc(me.name)} · ${esc(me.email)}</p>${me.role==='admin'?'<h2>Server und Updates</h2><div class="card" id="sys"><p class="muted" style="margin:0">Lädt …</p></div>':''}<h2>Passwort ändern</h2><form class="card" id="f"><label for="c1">Aktuelles Passwort</label><input id="c1" type="password" autocomplete="current-password" autocapitalize="off" spellcheck="false" required>
     <label for="c2">Neues Passwort (mind. 10 Zeichen)</label><input id="c2" type="password" autocomplete="new-password" autocapitalize="off" spellcheck="false" minlength="10" required>
     <label for="c3">Neues Passwort wiederholen</label><input id="c3" type="password" autocomplete="new-password" autocapitalize="off" spellcheck="false" minlength="10" required>
     <label style="display:flex;gap:8px;align-items:center;font-weight:500"><input type="checkbox" id="sh" style="width:auto"> Passwörter anzeigen</label>
@@ -262,7 +262,12 @@ function viewAccount(){
     if(c2.value!==c3.value){err.textContent='Die beiden neuen Passwörter sind nicht gleich.';return}
     if(c2.value.length<10){err.textContent='Neues Passwort: mindestens 10 Zeichen.';return}
     try{await api('/api/me/password','POST',{current:c1.value,next:c2.value});err.className='ok';err.textContent='Passwort geändert ✓ Ab jetzt gilt nur noch das neue Passwort.';f.reset();sh.checked=false;[c1,c2,c3].forEach(i=>i.type='password')}catch(x){err.textContent=x.message}};
-  lo.onclick=async()=>{await api('/api/logout','POST');me=null;showLogin()}}
+  lo.onclick=async()=>{await api('/api/logout','POST');me=null;showLogin()}
+  if(me.role==='admin')api('/api/system').then(s=>{const u=s.update,box=document.getElementById('sys');if(!box)return;
+    const ok=u&&!/Fehler/.test(u.result);
+    box.innerHTML=`<p style="margin:0">App-Version: <b>${esc(s.version)}</b></p>`+(u?`<p style="margin:8px 0 0">Letzte Update-Prüfung: <b>${esc(u.checked)}</b><br>Ergebnis: <b style="color:${ok?'var(--pet)':'var(--bad)'}">${esc(u.result)}</b></p>`
+      :'<p class="err" style="margin:8px 0 0">Der Server meldet noch keine automatischen Update-Prüfungen. Die automatischen Updates sind auf diesem Server nicht eingerichtet.</p>')
+      +(s.log?`<details class="more"><summary>Protokoll</summary><pre style="white-space:pre-wrap;font-size:12px;margin:8px 0 0;overflow-wrap:anywhere">${esc(s.log)}</pre></details>`:'')}).catch(()=>{})}
 
 async function route(){
   if(!me){try{me=await api('/api/me')}catch(e){return showLogin()}}

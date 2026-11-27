@@ -8,6 +8,7 @@ services:
       - TRUST_PROXY=1
     volumes:
       - daten:/app/data
+      - /opt/badplaner-status:/app/status:ro
   caddy:
     image: caddy:2
     restart: unless-stopped

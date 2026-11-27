@@ -1,0 +1,9 @@
+[Unit]
+Description=Badplaner: neue Version von GitHub prüfen und einspielen
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /opt/badplaner/autoupdate.sh
+TimeoutStartSec=900

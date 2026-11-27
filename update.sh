@@ -1,10 +1,12 @@
 #!/bin/sh
 # Holt die neueste Version von GitHub und startet die App neu. Aufruf auf dem Server: badplaner-update
 set -e
-cd /opt/badplaner
-git -c credential.helper='!f() { echo username=token; echo "password=$(cat /root/.github-token)"; }; f' pull --ff-only
+BP_DIR=${BP_DIR:-/opt/badplaner}
+TOKEN_FILE=${TOKEN_FILE:-/root/.github-token}
+cd "$BP_DIR"
+git -c "credential.helper=!f() { echo username=token; echo \"password=\$(cat $TOKEN_FILE)\"; }; f" pull --ff-only
+[ -n "$SKIP_DOCKER" ] && exit 0
+sh "$BP_DIR/install-host.sh"
 docker compose up -d --build
 docker image prune -f >/dev/null
-ln -sf /opt/badplaner/passwort.sh /usr/local/bin/badplaner-passwort
-printf '*/10 * * * * root /bin/sh /opt/badplaner/autoupdate.sh >> /var/log/badplaner-update.log 2>&1\n' > /etc/cron.d/badplaner
 echo "Badplaner aktualisiert."

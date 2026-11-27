@@ -56,7 +56,8 @@ Der Server wird beim Anlegen per Startskript (Cloud config) eingerichtet: Docker
 App und Caddy für HTTPS. Danach:
 
 - **Adresse:** `https://<IP-mit-Bindestrichen>.sslip.io` – steht auf dem Server in `/root/ADRESSE.txt`
-- **Updates:** kommen automatisch – der Server prüft alle 10 Minuten GitHub (`autoupdate.sh`, Log: `/var/log/badplaner-update.log`). Sofort: `badplaner-update`
+- **Updates:** kommen automatisch – ein systemd-Timer prüft alle 2 Minuten GitHub (`autoupdate.sh`). Status und Protokoll stehen in der App unter **Konto** (Datei `/opt/badplaner-status/`). Sofort: `badplaner-update`
+- **Server-Einrichtung:** `install-host.sh` (wird beim ersten Start und bei jedem Update ausgeführt)
 - **Passwort vergessen:** in der Hetzner-Konsole `badplaner-passwort` eingeben
 - **Daten:** liegen im Docker-Volume `badplaner_daten`; Hetzner-Backups sichern den ganzen Server
 
