@@ -155,13 +155,13 @@ details.all summary{cursor:pointer;font-weight:600;color:var(--pet);min-height:4
   <div class="ctrl">
     <div class="gallery" id="gallery"></div>
     <p class="pmsg" id="pmsg" hidden></p>
-    <div class="prow"><button class="photo-btn" id="mkphoto">Echtes Foto (KI)</button><button class="pano-btn" id="mkpano">360° hier aufnehmen</button><button class="pano-btn" id="tour" hidden>Rundgang ansehen</button></div>
+    <div class="prow"><button class="photo-btn" id="mkphoto">Echtes Foto (KI)</button><button class="pano-btn" id="mkpano">360° hier aufnehmen</button><button class="pano-btn" id="tour" hidden>Rundgang ansehen</button><button class="pano-btn" id="autotour">Ganzer Rundgang (automatisch)</button></div>
     <div class="modes"><button id="m-orbit" class="on">Übersicht</button><button id="m-walk">Begehen</button><button id="m-vr">VR</button><button id="mood">Abendlicht</button></div>
   </div>
 </div>
 <div class="pano" id="pano"><div class="pfade" id="pfade"></div>
   <div class="chipbar"><button class="close" id="pclose">✕ Zurück</button><div class="hint" id="phint">Ziehen zum Umschauen · Punkte am Boden antippen</div></div>
-  <div class="ctrl"><p class="pmsg" id="ppmsg" hidden></p><div class="spots" id="spots"></div><div class="modes"><button id="psensor">Handy bewegen</button><button id="pvr">VR-Brille</button><button id="pdel">Löschen</button></div></div>
+  <div class="ctrl"><p class="pmsg" id="ppmsg" hidden></p><div class="spots" id="spots"></div><button class="photo-btn" id="pfwd">Vorwärts gehen</button><div class="modes"><button id="psensor">Handy bewegen</button><button id="pvr">VR-Brille</button><button id="pdel">Löschen</button></div></div>
 </div>
 <div class="viewer" id="viewer"><div class="bar"><span id="vinfo">KI-Foto</span><button class="close" id="vclose">✕ Schließen</button></div><img id="vimg" alt="KI-Foto des geplanten Bades"><p class="foot">Zum Speichern lange auf das Foto drücken. KI-Fotos sind eine Visualisierung, Details können leicht abweichen.</p></div>
 
@@ -805,6 +805,39 @@ mkp.onclick=async()=>{if(mkp.disabled)return;
     showMsg('360°-Foto fertig ✓ Für weitere Standpunkte: auf eine andere Stelle am Boden tippen und wieder aufnehmen.');await loadPhotos();openPano(d.id)}
   catch(e){clearInterval(iv);showMsg(e.message,true)}finally{mkp.disabled=false;mk.disabled=false}};
 document.getElementById('tour').onclick=()=>{if(panos.length)openPano(panos[0].id)};
+// ---- Geometrie für den Rundgang (Raumkoordinaten wie S.pts) ----
+function segCross(p,q,a,b){const cr=(x1,y1,x2,y2)=>x1*y2-y1*x2,r=[q[0]-p[0],q[1]-p[1]],v=[b[0]-a[0],b[1]-a[1]],den=cr(r[0],r[1],v[0],v[1]);if(Math.abs(den)<1e-9)return false;
+  const t=cr(a[0]-p[0],a[1]-p[1],v[0],v[1])/den,u=cr(a[0]-p[0],a[1]-p[1],r[0],r[1])/den;return t>.001&&t<.999&&u>=-.03&&u<=1.03}
+function walkBlocked(p,q){return walls().some(w=>segCross(p,q,w.A,w.B))||S.items.filter(isFree).some(f=>segCross(p,q,f.a,f.b))}
+function insideRoom(x,z){let c=false;S.pts.forEach((a,i)=>{const b=S.pts[(i+1)%S.pts.length];if((a[1]>z)!==(b[1]>z)&&x<(b[0]-a[0])*(z-a[1])/(b[1]-a[1])+a[0])c=!c});return c}
+function inObstacle(x,z){const W=walls();return S.items.some(it=>{if(isFree(it)||!FLOOR_TYPES.includes(it.type)||it.type==='du'||(it.type==='mo'&&it.v==='regal'))return false;const w=W[it.wall],D=dims(it),rx=x-w.A[0],rz=z-w.A[1],u=rx*w.d[0]+rz*w.d[1],v=rx*w.n[0]+rz*w.n[1];return u>it.t-D.w/2-.15&&u<it.t+D.w/2+.15&&v<D.d+.15})}
+function tourSpots(maxN){const W=walls(),xs=S.pts.map(p=>p[0]),zs=S.pts.map(p=>p[1]),cand=[];
+  const okPt=(x,z)=>insideRoom(x,z)&&W.every(w=>segDist([x,z],w.A,w.B)>=.4)&&S.items.filter(isFree).every(f=>segDist([x,z],f.a,f.b)>=.35)&&!inObstacle(x,z);
+  for(let x=Math.min(...xs)+.4;x<=Math.max(...xs)-.4+1e-9;x+=.15)for(let z=Math.min(...zs)+.4;z<=Math.max(...zs)-.4+1e-9;z+=.15)if(okPt(x,z))cand.push([+x.toFixed(2),+z.toFixed(2)]);
+  if(!cand.length)return[];
+  const door=S.items.find(i=>i.type==='tu');let start=cand[0];
+  if(door){const w=W[door.wall],dp=[w.A[0]+w.d[0]*door.t+w.n[0]*.6,w.A[1]+w.d[1]*door.t+w.n[1]*.6];start=cand.reduce((b,c)=>Math.hypot(c[0]-dp[0],c[1]-dp[1])<Math.hypot(b[0]-dp[0],b[1]-dp[1])?c:b)}
+  const chosen=[start],md=c=>Math.min(...chosen.map(q=>Math.hypot(q[0]-c[0],q[1]-c[1])));
+  while(chosen.length<maxN){let best=null,bd=0;cand.forEach(c=>{const d=md(c);if(d>bd){bd=d;best=c}});if(!best||bd<.85)break;chosen.push(best)}
+  const cx=chosen.reduce((s2,c)=>s2+c[0],0)/chosen.length,cz=chosen.reduce((s2,c)=>s2+c[1],0)/chosen.length;
+  return chosen.map(c=>({x:c[0],z:c[1],yaw:Math.hypot(cx-c[0],cz-c[1])<.2?0:Math.atan2(-(cx-c[0]),-(cz-c[1]))}))}
+const atb=document.getElementById('autotour');if(!VID)atb.hidden=true;let tourBusy=false;
+atb.onclick=async()=>{if(tourBusy)return;await loadPhotos();
+  const spots=tourSpots(8).filter(sp=>!panos.some(q=>q.x!=null&&Math.hypot(q.x-sp.x,q.z-sp.z)<.6));
+  if(!spots.length){showMsg(panos.length?'Der Raum ist schon komplett abgedeckt. „Rundgang ansehen“ antippen.':'Keine freien Standpunkte gefunden.',!panos.length);return}
+  if(!atb.dataset.sure){atb.dataset.sure=1;atb.textContent=`Ja, ${spots.length} Standpunkte erstellen`;showMsg(`Die App verteilt ${spots.length} Standpunkte über das ganze Bad (auch hinter Trennwänden) und macht von jedem ein 360°-Foto. Das dauert einige Minuten und kostet ${spots.length} Bild-KI-Fotos. Zum Starten noch einmal tippen.`);setTimeout(()=>{if(!tourBusy){delete atb.dataset.sure;atb.textContent='Ganzer Rundgang (automatisch)'}},9000);return}
+  delete atb.dataset.sure;tourBusy=true;atb.disabled=mk.disabled=mkp.disabled=true;atb.textContent='Rundgang wird erstellt …';
+  const saved={x:walk.x,z:walk.z,yaw:walk.yaw,m:mode};let done=0,fail=0,next=0,lastErr='';const t0=Date.now();
+  const tick=()=>showMsg(`Rundgang: ${done} von ${spots.length} Standpunkten fertig${fail?`, ${fail} fehlgeschlagen`:''} · ${Math.round((Date.now()-t0)/1000)} s. Bitte die Seite offen lassen.`);tick();const iv=setInterval(tick,1000);
+  const worker=async()=>{while(next<spots.length){const sp=spots[next++];
+    walk.x=sp.x-center[0];walk.z=sp.z-center[1];walk.yaw=sp.yaw;await new Promise(r=>setTimeout(r,20));const img=capturePano();
+    try{const r=await fetch('/api/variants/'+VID+'/pano',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({image:img,x:sp.x,z:sp.z,yaw:sp.yaw})});
+      const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Fehler '+r.status);done++}catch(e){fail++;lastErr=e.message}}};
+  await Promise.all([worker(),worker()]);clearInterval(iv);
+  walk.x=saved.x;walk.z=saved.z;walk.yaw=saved.yaw;mode=saved.m;tourBusy=false;atb.disabled=mk.disabled=mkp.disabled=false;atb.textContent='Ganzer Rundgang (automatisch)';
+  await loadPhotos();showMsg(fail?`${done} Standpunkte fertig, ${fail} fehlgeschlagen: ${lastErr}`:`Rundgang fertig ✓ ${done} Standpunkte.`,!!fail&&!done);
+  if(done&&panos.length)openPano(panos[0].id)};
+
 
 // Betrachter: eigener Renderer, Kugel mit eigenem Shader (gleiche Projektion wie oben)
 const panoEl=document.getElementById('pano'),spotsEl=document.getElementById('spots'),phint=document.getElementById('phint'),pfade=document.getElementById('pfade'),ppmsg=document.getElementById('ppmsg');
@@ -835,11 +868,11 @@ function pInit(){if(pv)return;pv=new THREE.WebGLRenderer({antialias:true});pv.se
 function pSize(){if(!pv)return;const w=panoEl.clientWidth,h=panoEl.clientHeight;if(!w||!h)return;pv.setSize(w,h,false);pCam.aspect=w/h;pCam.updateProjectionMatrix()}
 function pTap(e){const r=pv.domElement.getBoundingClientRect(),rc=new THREE.Raycaster();rc.setFromCamera({x:(e.clientX-r.left)/r.width*2-1,y:-(e.clientY-r.top)/r.height*2+1},pCam);const h=rc.intersectObjects(pMarkers)[0];if(h)pJump(h.object.userData.id)}
 function pSetMarkers(){pMarkers.forEach(m=>{pGroup.remove(m);m.geometry.dispose();m.material.dispose()});pMarkers=[];
-  panos.forEach(q=>{if(q.id===pCur.id||q.x==null||pCur.x==null)return;const dx=q.x-pCur.x,dz=q.z-pCur.z;if(Math.hypot(dx,dz)<.15)return;
+  panos.forEach(q=>{if(q.id===pCur.id||q.x==null||pCur.x==null)return;const dx=q.x-pCur.x,dz=q.z-pCur.z;if(Math.hypot(dx,dz)<.15)return;if(walkBlocked([pCur.x,pCur.z],[q.x,q.z]))return;
     const m=new THREE.Mesh(new THREE.RingGeometry(.16,.25,40),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.85,depthTest:false,side:THREE.DoubleSide}));
     m.rotation.x=-Math.PI/2;m.position.set(dx,-1.57,dz);m.renderOrder=5;m.userData.id=q.id;pGroup.add(m);pMarkers.push(m);
     const dot=new THREE.Mesh(new THREE.CircleGeometry(.07,24),m.material.clone());dot.rotation.x=-Math.PI/2;dot.position.set(dx,-1.57,dz);dot.renderOrder=5;dot.userData.id=q.id;pGroup.add(dot);pMarkers.push(dot)})}
-function pSpots(){spotsEl.innerHTML=panos.length>1?panos.map((q,i)=>`<button data-id="${q.id}" class="${q.id===pCur.id?'on':''}">Standpunkt ${i+1}</button>`).join(''):''}
+function pSpots(){document.getElementById('pfwd').hidden=panos.length<2;spotsEl.innerHTML=panos.length>1?panos.map((q,i)=>`<button data-id="${q.id}" class="${q.id===pCur.id?'on':''}">Standpunkt ${i+1}</button>`).join(''):''}
 spotsEl.onclick=e=>{const b=e.target.closest('button');if(b)pJump(+b.dataset.id)};
 function pLoad(q,keepView){return new Promise((res,rej)=>loader.load('/api/photos/'+q.id,t=>{t.minFilter=THREE.LinearFilter;t.magFilter=THREE.LinearFilter;t.generateMipmaps=false;t.wrapS=THREE.RepeatWrapping;
   const old=pSphere.material.uniforms.map.value;pSphere.material.uniforms.map.value=t;if(old)old.dispose();pCur=q;
@@ -849,6 +882,11 @@ async function openPano(id){pInit();const q=panos.find(p=>p.id===id)||panos[0];i
   phint.textContent=panos.length>1?'Ziehen zum Umschauen · weiße Punkte am Boden antippen = dorthin gehen':'Ziehen zum Umschauen · weitere Standpunkte im 3D aufnehmen'}
 async function pJump(id){const q=panos.find(p=>p.id===id);if(!q||q===pCur)return;const pc=pCur;pfade.classList.add('on');await new Promise(r=>setTimeout(r,300));
   try{await pLoad(q,true);if(pc&&pc.x!=null&&q.x!=null&&!pSensor){/* Blickrichtung beibehalten */}}catch(e){}pfade.classList.remove('on')}
+function pForward(){if(!pCur||pCur.x==null)return;const dir=new THREE.Vector3();pCam.getWorldDirection(dir);const fy=Math.atan2(dir.x,dir.z);let best=null;
+  panos.forEach(q=>{if(q.id===pCur.id||q.x==null)return;const dx=q.x-pCur.x,dz=q.z-pCur.z,dist=Math.hypot(dx,dz);if(dist<.15||walkBlocked([pCur.x,pCur.z],[q.x,q.z]))return;
+    let da=Math.abs(Math.atan2(dx,dz)-fy);if(da>Math.PI)da=2*Math.PI-da;if(da>1.05)return;const sc=dist*(1+da*1.5);if(!best||sc<best.sc)best={q,sc}});
+  if(best)pJump(best.q.id);else{ppmsg.hidden=false;ppmsg.textContent='In diese Richtung geht es nicht weiter. Dreh dich um oder tippe einen Punkt am Boden an.';setTimeout(()=>ppmsg.hidden=true,2500)}}
+document.getElementById('pfwd').onclick=pForward;
 document.getElementById('pclose').onclick=()=>{panoEl.classList.remove('open');pSensorOff()};
 function pSensorOff(){if(pSensor){window.removeEventListener('deviceorientation',pOrient);pSensor=null;document.getElementById('psensor').classList.remove('on')}}
 const zee=new THREE.Vector3(0,0,1),q1=new THREE.Quaternion(-Math.sqrt(.5),0,0,Math.sqrt(.5)),eul=new THREE.Euler(),q0=new THREE.Quaternion();
