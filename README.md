@@ -66,5 +66,5 @@ App und Caddy für HTTPS. Danach:
 1. ✅ Grundgerüst: Login, Team, Kundenprojekte, Varianten, Planer speichert auf dem Server
 2. ✅ Online stellen: Hetzner-Server mit HTTPS (eigene Domain folgt)
 3. ✅ KI-Planung: Raum → Kundenwunsch (Freitext/Diktat) → 3–5 Ideen mit Vorschau (`ai.js`). Trends recherchiert die KI wöchentlich selbst im Internet; Hausregeln unter „KI“
-4. ✅ KI-Fotos: 3D-Ansicht → fotorealistisches Foto per OpenAI-Bild-KI (`ai.photo`, Schlüssel unter „KI“). Offen: 360°-Panoramen für die Brille
+4. ✅ KI-Fotos: 3D-Ansicht → fotorealistisches Foto per OpenAI-Bild-KI (`ai.photo`, Schlüssel unter „KI“). 360°-Rundgang: an mehreren Standpunkten Rundum-Fotos (2048×1024), Sprungpunkte, Bewegungssensor, VR
 5. Produktkatalog: echte Produkte, Bilder und 3D-Modelle von Großhandel und Herstellern

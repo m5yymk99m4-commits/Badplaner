@@ -347,7 +347,7 @@ const EN = {
     'hk:hk': 'heated towel rail', 'vw:v': 'tiled half-height pre-wall with a shelf', 'ni:n': 'tiled wall niche with LED strip', 'fe:f': 'window with natural daylight', 'tu:t': 'interior door' },
   arm: { 'wt:stand': 'basin mixer tap', 'wt:hoch': 'tall basin mixer tap', 'wt:wand': 'wall-mounted basin tap', 'du:regen': 'exposed rain shower set', 'du:up': 'concealed thermostatic shower with large ceiling rain head', 'du:hand': 'shower rail with hand shower', 'wa:wand': 'wall-mounted bath mixer', 'wa:stand': 'floor-standing freestanding bath mixer' },
 };
-function photoPrompt(plan) {
+function photoPrompt(plan, kind) {
   const p = plan || {}, items = p.items || [];
   const fin = EN.finish[p.finish] || 'polished chrome';
   const objs = [...new Set(items.map(it => {
@@ -358,20 +358,27 @@ function photoPrompt(plan) {
   const accent = p.accent != null && EN.wall[p.accentTile] ? ` One accent wall is clad in ${EN.wall[p.accentTile]}.` : '';
   const half = p.tileH === 'halb' ? ' Wall tiles go up to 1.20 m height, above that the walls are painted in a soft warm white.' : ' Wall tiles go up to the ceiling.';
   const light = p.mood === 'abend' ? 'Warm, cosy evening light from recessed ceiling spots and the backlit mirror.' : 'Soft natural daylight' + (items.some(i => i.type === 'fe') ? ' coming through the window' : '') + ', complemented by recessed ceiling spots.';
+  const look = `Materials: walls in ${EN.wall[p.wall] || EN.wall.weiss} with ${EN.grout[p.grout] || 'matching'} grout.${half}${accent} Floor in ${EN.floor[p.floor] || EN.floor.eiche}. Vanity furniture in ${EN.furn[p.furn] || 'natural oak wood'}. All taps and metal fittings in ${fin}.
+Fixtures in this bathroom (show only those that are visible in the image): ${objs.join('; ') || 'standard bathroom fixtures'}.
+${light}
+${p.deko === false ? 'No decoration.' : 'Tasteful minimal styling: folded towels, a small plant, a soap dispenser.'}`;
+  if (kind === 'pano') return `This image is a 360° equirectangular panorama (2:1) rendered from a simple 3D model of a bathroom, seen from one standing point at eye level.
+Turn it into a photorealistic 360° equirectangular panorama photograph of the same newly renovated bathroom in a German home.
+VERY IMPORTANT: keep the exact equirectangular projection and spherical distortion of the input. Keep the horizon exactly in the vertical middle. Keep every wall, edge, door, window and fixture at exactly the same pixel position and size. Ceiling stays at the top, floor at the bottom. The left and right edges of the image must connect seamlessly. Do not crop, do not zoom, do not reframe, do not straighten the curved lines, do not turn it into a normal flat photo.
+Replace the plain 3D look with real materials, real textures, physically correct light, soft shadows and natural reflections.
+${look}
+Style: high-end real-estate 360° virtual tour photography, sharp, natural colours, no people, no text, no watermark, no logos.`;
   return `Turn this simple 3D render into a photorealistic interior photograph of a newly renovated bathroom in a German home.
 Keep EXACTLY the same camera position, perspective, room shape, wall positions, window and door positions, and the position, size and type of every fixture shown in the render. Do not add, remove or move fixtures. Do not change the layout.
 Replace the plain 3D look with real materials, real textures, physically correct light, soft shadows and natural reflections.
-Materials: walls in ${EN.wall[p.wall] || EN.wall.weiss} with ${EN.grout[p.grout] || 'matching'} grout.${half}${accent} Floor in ${EN.floor[p.floor] || EN.floor.eiche}. Vanity furniture in ${EN.furn[p.furn] || 'natural oak wood'}. All taps and metal fittings in ${fin}.
-Fixtures in this bathroom (show only those that are visible in the render): ${objs.join('; ') || 'standard bathroom fixtures'}.
-${light}
-${p.deko === false ? 'No decoration.' : 'Tasteful minimal styling: folded towels, a small plant, a soap dispenser.'}
+${look}
 Style: high-end architectural interior photography, shot on a full-frame camera with a 24 mm lens, eye level, sharp, natural colours, no people, no text, no watermark, no logos.`;
 }
-async function photo(cfg, dataUrl, plan) {
+async function photo(cfg, dataUrl, plan, kind) {
   if (!cfg.openaiKey) throw new AiError(400, 'Für echte Fotos fehlt noch der Schlüssel für die Bild-KI (OpenAI). Ein Admin kann ihn unter „KI“ eintragen.');
   if (!/^data:image\/(jpeg|png|webp);base64,/.test(dataUrl || '')) throw new AiError(400, 'Kein gültiges Bild der Ansicht erhalten.');
   const base = (process.env.OPENAI_BASE_URL || 'https://api.openai.com').replace(/\/$/, '');
-  const body = { images: [{ image_url: dataUrl }], prompt: photoPrompt(plan), size: '1536x1024', quality: cfg.imageQuality || 'high', output_format: 'jpeg', n: 1 };
+  const body = { images: [{ image_url: dataUrl }], prompt: photoPrompt(plan, kind), size: kind === 'pano' ? '2048x1024' : '1536x1024', quality: cfg.imageQuality || 'high', output_format: 'jpeg', n: 1 };
   if (cfg.imageModel) body.model = cfg.imageModel;
   let r;
   try { r = await fetch(base + '/v1/images/edits', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + cfg.openaiKey }, body: JSON.stringify(body), signal: AbortSignal.timeout(300000) }); }
@@ -384,6 +391,7 @@ async function photo(cfg, dataUrl, plan) {
     if (code === 'insufficient_quota' || /quota|billing|credit/i.test(msg)) throw new AiError(402, 'Das Guthaben bei OpenAI reicht nicht. Bitte unter platform.openai.com → Billing aufladen.' + orig);
     if (/verif/i.test(msg)) throw new AiError(502, 'OpenAI verlangt für die Bild-KI eine Verifizierung deiner Organisation (platform.openai.com → Settings → Organization).' + orig);
     if (r.status === 429) throw new AiError(503, 'Die Bild-KI ist gerade ausgelastet. Bitte gleich noch einmal versuchen.' + orig);
+    if (kind === 'pano' && /size/i.test(msg)) throw new AiError(502, 'Das eingestellte Bild-Modell kann keine 360°-Größe (2048 × 1024). Bitte unter „KI“ das Feld „Bild-Modell“ leer lassen, damit das aktuelle Standardmodell genutzt wird.' + orig);
     throw new AiError(502, 'Die Bild-KI hat einen Fehler gemeldet.' + orig);
   }
   const b64 = data?.data?.[0]?.b64_json;

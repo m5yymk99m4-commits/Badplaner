@@ -15,7 +15,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const COOKIE_SECURE = process.env.COOKIE_SECURE === '1'; // auf 1 setzen, sobald HTTPS läuft
 const TRUST_PROXY = process.env.TRUST_PROXY === '1'; // 1 = hinter Caddy, echte Besucher-IP aus X-Forwarded-For
 const SESSION_DAYS = 30;
-const APP_VERSION = '2026-11-27.8';
+const APP_VERSION = '2026-11-27.9';
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 const db = new DatabaseSync(path.join(DATA_DIR, 'badplaner.db'));
@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 `);
 try { db.exec(`ALTER TABLE variants ADD COLUMN note TEXT NOT NULL DEFAULT ''`); } catch { /* Spalte existiert schon */ }
+for (const col of [`kind TEXT NOT NULL DEFAULT 'foto'`, 'x REAL', 'z REAL', 'yaw REAL']) { try { db.exec('ALTER TABLE photos ADD COLUMN ' + col); } catch { /* existiert schon */ } }
 const DEFAULT_MODEL = 'claude-sonnet-5-5';
 const getSetting = (k, d = '') => { const r = db.prepare('SELECT value FROM settings WHERE key = ?').get(k); return r ? r.value : d; };
 const setSetting = (k, v) => db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(k, v);
@@ -264,8 +265,9 @@ route('GET', '/api/projects/:id', (req, res, u, p) => {
   proj.variants = db.prepare('SELECT * FROM variants WHERE project_id = ? ORDER BY id').all(proj.id).map(v => {
     let room = false; try { const pl = JSON.parse(v.plan_json || '{}'); room = Array.isArray(pl.pts) && pl.pts.length >= 3; } catch {}
     let plan = null; if (room) { try { plan = JSON.parse(v.plan_json); } catch {} }
-    const ph = db.prepare('SELECT id FROM photos WHERE variant_id = ? ORDER BY id DESC LIMIT 1').get(v.id);
-    return { ...variantOut(v, false), has_room: room, plan, photo_id: ph ? ph.id : null };
+    const ph = db.prepare(`SELECT id FROM photos WHERE variant_id = ? AND kind = 'foto' ORDER BY id DESC LIMIT 1`).get(v.id);
+    const pc = db.prepare(`SELECT COUNT(*) AS n FROM photos WHERE variant_id = ? AND kind = 'pano'`).get(v.id).n;
+    return { ...variantOut(v, false), has_room: room, plan, photo_id: ph ? ph.id : null, pano_count: pc };
   });
   return proj;
 });
@@ -418,24 +420,27 @@ setTimeout(() => { try {
   const known = new Set(db.prepare('SELECT file FROM photos').all().map(r => r.file));
   fs.readdirSync(PHOTO_DIR).forEach(f => { if (!known.has(f)) fs.rm(path.join(PHOTO_DIR, f), () => {}); });
 } catch (e) { console.warn('Foto-Aufräumen:', e.message); } }, 30000).unref();
-route('POST', '/api/variants/:id/photo', async (req, res, u, p) => {
+async function makePhoto(req, u, p, kind) {
   needUser(u);
   const v = getVariant(Number(p.id)), b = await readJson(req, 12e6);
   if (photoBusy >= 2) throw new HttpError(429, 'Es werden gerade schon Fotos erstellt. Bitte kurz warten.');
   photoBusy++;
   let buf;
-  try { buf = await ai.photo(aiConfig(), b.image, JSON.parse(v.plan_json || '{}')); }
+  try { buf = await ai.photo(aiConfig(), b.image, JSON.parse(v.plan_json || '{}'), kind); }
   catch (e) { throw new HttpError(e.status || 500, e.message || 'Fehler bei der Bild-KI'); }
   finally { photoBusy--; }
-  const file = `v${v.id}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.jpg`;
+  const file = `v${v.id}-${kind}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.jpg`;
   fs.writeFileSync(path.join(PHOTO_DIR, file), buf);
-  const id = Number(db.prepare('INSERT INTO photos (variant_id, file) VALUES (?, ?)').run(v.id, file).lastInsertRowid);
+  const num = x => (Number.isFinite(Number(x)) ? Number(x) : null);
+  const id = Number(db.prepare('INSERT INTO photos (variant_id, file, kind, x, z, yaw) VALUES (?, ?, ?, ?, ?, ?)').run(v.id, file, kind, num(b.x), num(b.z), num(b.yaw)).lastInsertRowid);
   touch(v.project_id);
   return { id };
-});
+}
+route('POST', '/api/variants/:id/photo', (req, res, u, p) => makePhoto(req, u, p, 'foto'));
+route('POST', '/api/variants/:id/pano', (req, res, u, p) => makePhoto(req, u, p, 'pano'));
 route('GET', '/api/variants/:id/photos', (req, res, u, p) => {
   needUser(u); getVariant(Number(p.id));
-  return db.prepare('SELECT id, created_at FROM photos WHERE variant_id = ? ORDER BY id DESC').all(Number(p.id));
+  return db.prepare('SELECT id, kind, x, z, yaw, created_at FROM photos WHERE variant_id = ? ORDER BY id DESC').all(Number(p.id));
 });
 route('GET', '/api/photos/:id', (req, res, u, p) => {
   needUser(u);

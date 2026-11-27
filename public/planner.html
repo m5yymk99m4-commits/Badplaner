@@ -112,6 +112,22 @@ tfoot td{border:0;font:800 18px Archivo,sans-serif;padding-top:12px}
 .viewer .bar{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top,0px) + 12px) max(12px,env(safe-area-inset-right,0px)) 10px max(12px,env(safe-area-inset-left,0px));color:#f1ebe1;font-size:13.5px}
 .viewer .foot{padding:10px 16px calc(env(safe-area-inset-bottom,0px) + 14px);color:#cfc5b6;font-size:13px;text-align:center}
 @media(min-width:900px){.hint{max-width:40%}}
+.prow{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.pano-btn{border:0;background:rgba(255,252,247,.95);color:#2b2620;font:600 15px Inter,sans-serif;padding:13px 16px;border-radius:14px;cursor:pointer;min-height:50px;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+.pano-btn:disabled,.photo-btn:disabled{opacity:.6}
+.gallery .g{position:relative;flex:none}
+.gallery .g b{position:absolute;left:4px;top:4px;background:rgba(43,38,32,.8);color:#fff;font-size:10.5px;padding:1px 5px;border-radius:6px}
+.pano{position:fixed;inset:0;z-index:58;background:#14110e;display:none;touch-action:none}
+.pano.open{display:block}
+.pano canvas{display:block;width:100%;height:100%}
+.pano .chipbar{z-index:2}
+.pano .ctrl{z-index:2}
+.spots{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.spots button{border:0;background:rgba(255,252,247,.92);color:#2b2620;font:600 14px Inter,sans-serif;padding:9px 13px;border-radius:999px;cursor:pointer;min-height:42px}
+.spots button.on{background:#566b4a;color:#fff}
+.pfade{position:absolute;inset:0;background:#14110e;opacity:0;pointer-events:none;transition:opacity .35s}
+.pfade.on{opacity:1}
+
 </style>
 </head>
 <body>
@@ -127,9 +143,13 @@ tfoot td{border:0;font:800 18px Archivo,sans-serif;padding-top:12px}
   <div class="ctrl">
     <div class="gallery" id="gallery"></div>
     <p class="pmsg" id="pmsg" hidden></p>
-    <button class="photo-btn" id="mkphoto">Echtes Foto erstellen (KI)</button>
+    <div class="prow"><button class="photo-btn" id="mkphoto">Echtes Foto (KI)</button><button class="pano-btn" id="mkpano">360° hier aufnehmen</button><button class="pano-btn" id="tour" hidden>Rundgang ansehen</button></div>
     <div class="modes"><button id="m-orbit" class="on">Übersicht</button><button id="m-walk">Begehen</button><button id="m-vr">VR</button><button id="mood">Abendlicht</button></div>
   </div>
+</div>
+<div class="pano" id="pano"><div class="pfade" id="pfade"></div>
+  <div class="chipbar"><button class="close" id="pclose">✕ Zurück</button><div class="hint" id="phint">Ziehen zum Umschauen · Punkte am Boden antippen</div></div>
+  <div class="ctrl"><p class="pmsg" id="ppmsg" hidden></p><div class="spots" id="spots"></div><div class="modes"><button id="psensor">Handy bewegen</button><button id="pvr">VR-Brille</button><button id="pdel">Löschen</button></div></div>
 </div>
 <div class="viewer" id="viewer"><div class="bar"><span id="vinfo">KI-Foto</span><button class="close" id="vclose">✕ Schließen</button></div><img id="vimg" alt="KI-Foto des geplanten Bades"><p class="foot">Zum Speichern lange auf das Foto drücken. KI-Fotos sind eine Visualisierung, Details können leicht abweichen.</p></div>
 
@@ -582,9 +602,11 @@ document.getElementById('vclose').onclick=()=>viewer.classList.remove('open');
 if(!VID){mk.hidden=true;document.getElementById('openphoto').hidden=true;document.querySelector('.viewbar .in').style.gridTemplateColumns='1fr'}
 function showMsg(t,err){pmsg.hidden=!t;pmsg.textContent=t||'';pmsg.className='pmsg'+(err?' err':'')}
 function showPhoto(id,info){vimg.src='/api/photos/'+id;document.getElementById('vinfo').textContent=info||'KI-Foto';viewer.classList.add('open')}
+let panos=[];
 async function loadPhotos(){if(!VID)return;try{const r=await fetch('/api/variants/'+VID+'/photos',{credentials:'same-origin'});if(!r.ok)return;const list=await r.json();
-  gal.innerHTML=list.map(p=>`<img src="/api/photos/${p.id}" data-id="${p.id}" alt="Früheres KI-Foto" loading="lazy">`).join('')}catch(e){}}
-gal.onclick=e=>{const i=e.target.closest('img');if(i)showPhoto(i.dataset.id)};
+  panos=list.filter(p=>p.kind==='pano').reverse();document.getElementById('tour').hidden=!panos.length;document.getElementById('tour').textContent=`Rundgang ansehen (${panos.length})`;
+  gal.innerHTML=list.map(p=>`<span class="g"><img src="/api/photos/${p.id}" data-id="${p.id}" data-kind="${p.kind}" alt="${p.kind==='pano'?'360°-Foto':'KI-Foto'}" loading="lazy">${p.kind==='pano'?'<b>360°</b>':''}</span>`).join('');return list}catch(e){}}
+gal.onclick=e=>{const i=e.target.closest('img');if(!i)return;if(i.dataset.kind==='pano')openPano(+i.dataset.id);else showPhoto(i.dataset.id)};
 function capture(){
   const hv=helper&&helper.visible;if(helper)helper.visible=false;
   const W=1536,H=1024,pr=renderer.getPixelRatio(),m=mode;
@@ -598,7 +620,99 @@ mk.onclick=async()=>{if(mk.disabled)return;mk.disabled=true;const t0=Date.now();
     const d=await r.json().catch(()=>({}));clearInterval(iv);if(!r.ok)throw new Error(d.error||'Fehler '+r.status);
     showMsg('');showPhoto(d.id,'Neues KI-Foto');loadPhotos()}
   catch(e){clearInterval(iv);showMsg(e.message,true)}finally{mk.disabled=false}};
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(viewer.classList.contains('open'))viewer.classList.remove('open');else if(stageEl.classList.contains('open'))close3d()}});
+/* ================= 360°-Rundgang ================= */
+const mkp=document.getElementById('mkpano');
+if(!VID)mkp.hidden=true;
+// 6 Würfelseiten aus der 3D-Szene rendern und zu einem 2:1-Rundumbild (equirektangular) umrechnen
+function capturePano(){
+  const F=1024,Wd=2048,Ht=1024,eye=new THREE.Vector3(walk.x,1.6,walk.z),hv=helper&&helper.visible;if(helper)helper.visible=false;
+  const pr=renderer.getPixelRatio();renderer.setPixelRatio(1);renderer.setSize(F,F,false);
+  const cam=new THREE.PerspectiveCamera(90,1,.03,60);cam.position.copy(eye);
+  const tmp=document.createElement('canvas');tmp.width=tmp.height=F;const tc=tmp.getContext('2d',{willReadFrequently:true});
+  const dirs=[[1,0,0,0,1,0],[-1,0,0,0,1,0],[0,1,0,0,0,1],[0,-1,0,0,0,-1],[0,0,1,0,1,0],[0,0,-1,0,1,0]],faces=[];
+  dirs.forEach(d=>{cam.up.set(d[3],d[4],d[5]);cam.lookAt(eye.x+d[0],eye.y+d[1],eye.z+d[2]);cam.updateMatrixWorld(true);renderer.render(scene,cam);
+    tc.drawImage(renderer.domElement,0,0,F,F);const e=cam.matrixWorld.elements;
+    faces.push({px:tc.getImageData(0,0,F,F).data,r:[e[0],e[1],e[2]],u:[e[4],e[5],e[6]],f:[-e[8],-e[9],-e[10]]})});
+  renderer.setPixelRatio(pr);size();if(helper)helper.visible=hv;
+  const out=document.createElement('canvas');out.width=Wd;out.height=Ht;const oc=out.getContext('2d'),img=oc.createImageData(Wd,Ht),o=img.data;
+  for(let py=0;py<Ht;py++){const lat=(.5-(py+.5)/Ht)*Math.PI,cl=Math.cos(lat),sl=Math.sin(lat);
+    for(let px=0;px<Wd;px++){const lon=((px+.5)/Wd-.5)*2*Math.PI,dx=cl*Math.sin(lon),dy=sl,dz=-cl*Math.cos(lon);
+      let best=null,bd=-2;for(const fc of faces){const d=dx*fc.f[0]+dy*fc.f[1]+dz*fc.f[2];if(d>bd){bd=d;best=fc}}
+      const x=(dx*best.r[0]+dy*best.r[1]+dz*best.r[2])/bd,y=(dx*best.u[0]+dy*best.u[1]+dz*best.u[2])/bd;
+      const sx=Math.min(F-1,Math.max(0,((x+1)/2*F)|0)),sy=Math.min(F-1,Math.max(0,((1-y)/2*F)|0)),si=(sy*F+sx)*4,oi=(py*Wd+px)*4;
+      o[oi]=best.px[si];o[oi+1]=best.px[si+1];o[oi+2]=best.px[si+2];o[oi+3]=255}}
+  oc.putImageData(img,0,0);return out.toDataURL('image/jpeg',.9)}
+mkp.onclick=async()=>{if(mkp.disabled)return;
+  if(mode!=='walk'){setMode('walk');showMsg('Tippe auf den Boden, wo du im Bad stehen möchtest. Dann noch einmal auf „360° hier aufnehmen“.');return}
+  mkp.disabled=true;mk.disabled=true;const t0=Date.now();
+  const tick=()=>showMsg(`Die KI macht ein 360°-Foto von diesem Standpunkt … ${Math.round((Date.now()-t0)/1000)} s (dauert meist 1 bis 2 Minuten)`);tick();const iv=setInterval(tick,1000);
+  try{await new Promise(r=>setTimeout(r,30));const img=capturePano();
+    const r=await fetch('/api/variants/'+VID+'/pano',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({image:img,x:walk.x+center[0],z:walk.z+center[1],yaw:walk.yaw})});
+    const d=await r.json().catch(()=>({}));clearInterval(iv);if(!r.ok)throw new Error(d.error||'Fehler '+r.status);
+    showMsg('360°-Foto fertig ✓ Für weitere Standpunkte: auf eine andere Stelle am Boden tippen und wieder aufnehmen.');await loadPhotos();openPano(d.id)}
+  catch(e){clearInterval(iv);showMsg(e.message,true)}finally{mkp.disabled=false;mk.disabled=false}};
+document.getElementById('tour').onclick=()=>{if(panos.length)openPano(panos[0].id)};
+
+// Betrachter: eigener Renderer, Kugel mit eigenem Shader (gleiche Projektion wie oben)
+const panoEl=document.getElementById('pano'),spotsEl=document.getElementById('spots'),phint=document.getElementById('phint'),pfade=document.getElementById('pfade'),ppmsg=document.getElementById('ppmsg');
+let pv=null,pScene,pCam,pGroup,pSphere,pMarkers=[],pCur=null,pLook={yaw:0,pitch:0,fov:75},pSensor=null,pSensorYaw=0;
+const loader=new THREE.TextureLoader();
+function pInit(){if(pv)return;pv=new THREE.WebGLRenderer({antialias:true});pv.setPixelRatio(Math.min(devicePixelRatio,2));pv.xr.enabled=true;panoEl.prepend(pv.domElement);
+  pScene=new THREE.Scene();pCam=new THREE.PerspectiveCamera(75,1,.05,200);pCam.position.set(0,1.6,0);pGroup=new THREE.Group();pGroup.position.set(0,1.6,0);pScene.add(pGroup);
+  const mat=new THREE.ShaderMaterial({uniforms:{map:{value:null}},side:THREE.BackSide,depthWrite:false,
+    vertexShader:'varying vec3 vDir;void main(){vDir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+    fragmentShader:'uniform sampler2D map;varying vec3 vDir;void main(){vec3 d=normalize(vDir);float u=atan(d.x,-d.z)/6.28318530718+0.5;float v=asin(clamp(d.y,-1.0,1.0))/3.14159265359+0.5;gl_FragColor=texture2D(map,vec2(u,v));}'});
+  pSphere=new THREE.Mesh(new THREE.SphereGeometry(50,96,48),mat);pGroup.add(pSphere);
+  const pr=new ResizeObserver(pSize);pr.observe(panoEl);
+  pv.setAnimationLoop(()=>{if(!panoEl.classList.contains('open'))return;if(!pv.xr.isPresenting){
+      if(pSensor){pCam.quaternion.copy(pSensor);pCam.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),pSensorYaw))}
+      else{pCam.rotation.order='YXZ';pCam.rotation.set(pLook.pitch,pLook.yaw,0)}
+      if(pCam.fov!==pLook.fov){pCam.fov=pLook.fov;pCam.updateProjectionMatrix()}}
+    pMarkers.forEach(m=>m.material.opacity=.65+.25*Math.sin(Date.now()/350));pv.render(pScene,pCam)});
+  const c=pv.domElement,pp=new Map();let mv=0;
+  c.addEventListener('pointerdown',e=>{c.setPointerCapture(e.pointerId);pp.set(e.pointerId,{x:e.clientX,y:e.clientY});mv=0});
+  c.addEventListener('pointermove',e=>{const q=pp.get(e.pointerId);if(!q)return;
+    if(pp.size===2){const a=[...pp.values()],d0=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);q.x=e.clientX;q.y=e.clientY;const b=[...pp.values()],d1=Math.hypot(b[0].x-b[1].x,b[0].y-b[1].y);pLook.fov=clamp(pLook.fov*d0/d1,35,95);mv=99;return}
+    const dx=e.clientX-q.x,dy=e.clientY-q.y;q.x=e.clientX;q.y=e.clientY;mv+=Math.abs(dx)+Math.abs(dy);const k=pLook.fov/75;
+    if(pSensor)pSensorYaw+=dx*.005*k;else{pLook.yaw+=dx*.005*k;pLook.pitch=clamp(pLook.pitch+dy*.005*k,-1.45,1.45)}});
+  c.addEventListener('pointerup',e=>{pp.delete(e.pointerId);if(mv<6)pTap(e)});
+  c.addEventListener('pointercancel',e=>pp.delete(e.pointerId));
+  c.addEventListener('wheel',e=>{e.preventDefault();pLook.fov=clamp(pLook.fov*(1+e.deltaY*.001),35,95)},{passive:false});
+  [0,1].forEach(i=>{const ctl=pv.xr.getController(i);ctl.addEventListener('select',()=>{const m=new THREE.Matrix4().extractRotation(ctl.matrixWorld);const rc=new THREE.Raycaster();rc.ray.origin.setFromMatrixPosition(ctl.matrixWorld);rc.ray.direction.set(0,0,-1).applyMatrix4(m);const h=rc.intersectObjects(pMarkers)[0];if(h)pJump(h.object.userData.id)});pScene.add(ctl)})}
+function pSize(){if(!pv)return;const w=panoEl.clientWidth,h=panoEl.clientHeight;if(!w||!h)return;pv.setSize(w,h,false);pCam.aspect=w/h;pCam.updateProjectionMatrix()}
+function pTap(e){const r=pv.domElement.getBoundingClientRect(),rc=new THREE.Raycaster();rc.setFromCamera({x:(e.clientX-r.left)/r.width*2-1,y:-(e.clientY-r.top)/r.height*2+1},pCam);const h=rc.intersectObjects(pMarkers)[0];if(h)pJump(h.object.userData.id)}
+function pSetMarkers(){pMarkers.forEach(m=>{pGroup.remove(m);m.geometry.dispose();m.material.dispose()});pMarkers=[];
+  panos.forEach(q=>{if(q.id===pCur.id||q.x==null||pCur.x==null)return;const dx=q.x-pCur.x,dz=q.z-pCur.z;if(Math.hypot(dx,dz)<.15)return;
+    const m=new THREE.Mesh(new THREE.RingGeometry(.16,.25,40),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.85,depthTest:false,side:THREE.DoubleSide}));
+    m.rotation.x=-Math.PI/2;m.position.set(dx,-1.57,dz);m.renderOrder=5;m.userData.id=q.id;pGroup.add(m);pMarkers.push(m);
+    const dot=new THREE.Mesh(new THREE.CircleGeometry(.07,24),m.material.clone());dot.rotation.x=-Math.PI/2;dot.position.set(dx,-1.57,dz);dot.renderOrder=5;dot.userData.id=q.id;pGroup.add(dot);pMarkers.push(dot)})}
+function pSpots(){spotsEl.innerHTML=panos.length>1?panos.map((q,i)=>`<button data-id="${q.id}" class="${q.id===pCur.id?'on':''}">Standpunkt ${i+1}</button>`).join(''):''}
+spotsEl.onclick=e=>{const b=e.target.closest('button');if(b)pJump(+b.dataset.id)};
+function pLoad(q,keepView){return new Promise((res,rej)=>loader.load('/api/photos/'+q.id,t=>{t.minFilter=THREE.LinearFilter;t.magFilter=THREE.LinearFilter;t.generateMipmaps=false;t.wrapS=THREE.RepeatWrapping;
+  const old=pSphere.material.uniforms.map.value;pSphere.material.uniforms.map.value=t;if(old)old.dispose();pCur=q;
+  if(!keepView&&q.yaw!=null){pLook.yaw=q.yaw;pLook.pitch=-.05}pSetMarkers();pSpots();res()},undefined,()=>rej(new Error('360°-Foto konnte nicht geladen werden.')))) }
+async function openPano(id){pInit();const q=panos.find(p=>p.id===id)||panos[0];if(!q)return;panoEl.classList.add('open');pSize();ppmsg.hidden=true;
+  try{await pLoad(q)}catch(e){ppmsg.hidden=false;ppmsg.textContent=e.message}
+  phint.textContent=panos.length>1?'Ziehen zum Umschauen · weiße Punkte am Boden antippen = dorthin gehen':'Ziehen zum Umschauen · weitere Standpunkte im 3D aufnehmen'}
+async function pJump(id){const q=panos.find(p=>p.id===id);if(!q||q===pCur)return;const pc=pCur;pfade.classList.add('on');await new Promise(r=>setTimeout(r,300));
+  try{await pLoad(q,true);if(pc&&pc.x!=null&&q.x!=null&&!pSensor){/* Blickrichtung beibehalten */}}catch(e){}pfade.classList.remove('on')}
+document.getElementById('pclose').onclick=()=>{panoEl.classList.remove('open');pSensorOff()};
+function pSensorOff(){if(pSensor){window.removeEventListener('deviceorientation',pOrient);pSensor=null;document.getElementById('psensor').classList.remove('on')}}
+const zee=new THREE.Vector3(0,0,1),q1=new THREE.Quaternion(-Math.sqrt(.5),0,0,Math.sqrt(.5)),eul=new THREE.Euler(),q0=new THREE.Quaternion();
+function pOrient(e){if(e.alpha==null)return;const d=Math.PI/180,or=((screen.orientation&&screen.orientation.angle)||window.orientation||0)*d;
+  eul.set(e.beta*d,e.alpha*d,-e.gamma*d,'YXZ');pSensor=pSensor||new THREE.Quaternion();pSensor.setFromEuler(eul);pSensor.multiply(q1);pSensor.multiply(q0.setFromAxisAngle(zee,-or))}
+document.getElementById('psensor').onclick=async()=>{const b=document.getElementById('psensor');if(pSensor){pSensorOff();return}
+  try{if(typeof DeviceOrientationEvent!=='undefined'&&DeviceOrientationEvent.requestPermission){const st=await DeviceOrientationEvent.requestPermission();if(st!=='granted')throw new Error('Bewegungssensor nicht erlaubt.')}
+    pSensorYaw=0;window.addEventListener('deviceorientation',pOrient);pSensor=new THREE.Quaternion();b.classList.add('on');phint.textContent='Handy drehen zum Umschauen · Ziehen dreht zusätzlich'}
+  catch(e){ppmsg.hidden=false;ppmsg.textContent=e.message||'Bewegungssensor nicht verfügbar.'}};
+document.getElementById('pvr').onclick=async()=>{if(!xrOK){ppmsg.hidden=false;ppmsg.textContent='VR: diese Seite im Browser der VR-Brille öffnen.';return}
+  try{const ses=await navigator.xr.requestSession('immersive-vr',{optionalFeatures:['local-floor']});pv.xr.setReferenceSpaceType('local-floor');await pv.xr.setSession(ses)}
+  catch(e){ppmsg.hidden=false;ppmsg.textContent='VR hier gesperrt – Seite direkt in der Brille öffnen.'}};
+document.getElementById('pdel').onclick=async()=>{const b=document.getElementById('pdel');if(!pCur)return;if(!b.dataset.sure){b.dataset.sure=1;b.textContent='Wirklich?';setTimeout(()=>{delete b.dataset.sure;b.textContent='Löschen'},3000);return}
+  delete b.dataset.sure;b.textContent='Löschen';await fetch('/api/photos/'+pCur.id,{method:'DELETE',headers:{'Content-Type':'application/json'},credentials:'same-origin'});await loadPhotos();
+  if(panos.length)openPano(panos[0].id);else{panoEl.classList.remove('open');pSensorOff()}};
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(panoEl.classList.contains('open')){panoEl.classList.remove('open');pSensorOff()}else if(viewer.classList.contains('open'))viewer.classList.remove('open');else if(stageEl.classList.contains('open'))close3d()}});
 
 (async()=>{
   if(VID){try{const r=await fetch('/api/variants/'+VID,{credentials:'same-origin'});if(r.status===401){location.href='/';return}const v=await r.json();if(!r.ok)throw new Error(v.error);
@@ -606,7 +720,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(viewer.classList
       if(v.plan&&v.plan.pts&&v.plan.items){S={...DEF(),...v.plan};tab='mass'}else{tab='draw'}setSaved(v.name)}
     catch(e){setSaved('Laden fehlgeschlagen: '+e.message)}}
   else{try{const s=JSON.parse(localStorage.getItem('badvr3')||'null');if(s&&s.pts&&s.items)S={...S,...s}}catch(e){}document.getElementById('back').hidden=true}
-  bM.textContent=S.mood==='tag'?'Abendlicht':'Tageslicht';fixItems();build();fitOrbit();render();size()})();
+  bM.textContent=S.mood==='tag'?'Abendlicht':'Tageslicht';fixItems();build();fitOrbit();render();size();
+  if(VID&&location.hash==='#rundgang'){await loadPhotos();if(panos.length)openPano(panos[0].id)}})();
 }
 </script>
 </body>
