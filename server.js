@@ -15,7 +15,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const COOKIE_SECURE = process.env.COOKIE_SECURE === '1'; // auf 1 setzen, sobald HTTPS läuft
 const TRUST_PROXY = process.env.TRUST_PROXY === '1'; // 1 = hinter Caddy, echte Besucher-IP aus X-Forwarded-For
 const SESSION_DAYS = 30;
-const APP_VERSION = '2026-11-27.7';
+const APP_VERSION = '2026-11-27.8';
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 const db = new DatabaseSync(path.join(DATA_DIR, 'badplaner.db'));
@@ -354,6 +354,10 @@ route('GET', '/api/settings', (req, res, u) => {
 route('PUT', '/api/settings', async (req, res, u) => {
   needAdmin(u);
   const b = await readJson(req);
+  let moved = null;
+  // OpenAI-Schlüssel versehentlich im Anthropic-Feld? Automatisch richtig zuordnen.
+  if (typeof b.key === 'string' && /^sk-/.test(b.key.trim()) && !/^sk-ant-/.test(b.key.trim())) { if (!b.openai_key) b.openai_key = b.key; b.key = ''; moved = 'openai'; }
+  if (typeof b.openai_key === 'string' && /^sk-ant-/.test(b.openai_key.trim())) { if (!b.key) b.key = b.openai_key; b.openai_key = ''; moved = 'anthropic'; }
   if (typeof b.key === 'string' && b.key.trim()) {
     const k = b.key.trim();
     if (!/^sk-ant-[A-Za-z0-9_\-]{20,}$/.test(k)) throw new HttpError(400, 'Der Schlüssel muss mit sk-ant- beginnen.');
@@ -370,7 +374,7 @@ route('PUT', '/api/settings', async (req, res, u) => {
   if (['low', 'medium', 'high'].includes(b.image_quality)) setSetting('image_quality', b.image_quality);
   if (typeof b.model === 'string') setSetting('ai_model', str(b.model, 80) || DEFAULT_MODEL);
   if (typeof b.trends === 'string') setSetting('ai_trends', b.trends.slice(0, 6000));
-  return { ok: true };
+  return { ok: true, moved };
 });
 route('POST', '/api/settings/trends', async (req, res, u) => {
   needAdmin(u);
