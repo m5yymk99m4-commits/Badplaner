@@ -15,7 +15,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const COOKIE_SECURE = process.env.COOKIE_SECURE === '1'; // auf 1 setzen, sobald HTTPS läuft
 const TRUST_PROXY = process.env.TRUST_PROXY === '1'; // 1 = hinter Caddy, echte Besucher-IP aus X-Forwarded-For
 const SESSION_DAYS = 30;
-const APP_VERSION = '2026-11-27.12';
+const APP_VERSION = '2026-11-27.13';
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 const db = new DatabaseSync(path.join(DATA_DIR, 'badplaner.db'));

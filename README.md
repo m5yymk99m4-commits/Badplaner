@@ -61,6 +61,13 @@ App und Caddy für HTTPS. Danach:
 - **Passwort vergessen:** in der Hetzner-Konsole `badplaner-passwort` eingeben
 - **Daten:** liegen im Docker-Volume `badplaner_daten`; Hetzner-Backups sichern den ganzen Server
 
+## Planer-Funktionen (Auszug)
+
+- Raum startet leer; Teile über Kategorien hinzufügen, automatische Platzierung
+- Freistehende Wände (T-Lösung) mit einrastenden Enden; Montage an Trennwänden (beide Seiten), Wanne frei im Raum
+- Dusche bodengleich/Duschwanne, Abläufe (Rinne Edelstahl/befliesbar/schwarz, Wandablauf, Punkt), Abtrennungen (Glas, Rahmen, Milchglas, gemauert)
+- Technik: Fußbodenheizung, Lüfter; Licht: LED-Leiste, Wandleuchte
+
 ## Fahrplan
 
 1. ✅ Grundgerüst: Login, Team, Kundenprojekte, Varianten, Planer speichert auf dem Server

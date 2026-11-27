@@ -13,7 +13,7 @@
    COLOUR warmes Beige, Tinte braun-schwarz, Olivgrün führend, Messing als Akzent
    TYPE Archivo + Inter
    LAYOUT eine ruhige Spalte bis 760px, feste Leiste unten mit „Ansehen“ und „Foto“ */
-:root{color-scheme:light dark;--bg:light-dark(#f5efe6,#1b1814);--panel:light-dark(#fffcf7,#25211c);--ink:light-dark(#2b2620,#f1ebe1);--mute:light-dark(#7a6e60,#b4a897);--line:light-dark(#e7dccd,#3a342c);--pet:light-dark(#566b4a,#a9bd96);--petbg:light-dark(#ebeedf,#2c3326);--brass:#b8862f;--stage:#2a2621;--floor:light-dark(#f3ebdf,#2a251f);--wallc:light-dark(#4a4136,#d9cfbf);--grid:light-dark(#ece3d6,#302a23);--bad:light-dark(#b0472f,#ec8f77);--shadow:0 6px 24px rgba(60,45,25,.12)}
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#1b1814);--panel:light-dark(#ffffff,#25211c);--beige:light-dark(#f2eadd,#2e2922);--beigeb:light-dark(#e2d4bf,#433b31);--ink:light-dark(#2b2620,#f1ebe1);--mute:light-dark(#7a6e60,#b4a897);--line:light-dark(#e7dccd,#3a342c);--pet:light-dark(#566b4a,#a9bd96);--petbg:light-dark(#ebeedf,#2c3326);--brass:#b8862f;--stage:#2a2621;--floor:light-dark(#f3ebdf,#2a251f);--wallc:light-dark(#4a4136,#d9cfbf);--grid:light-dark(#ece3d6,#302a23);--bad:light-dark(#b0472f,#ec8f77);--shadow:0 6px 24px rgba(60,45,25,.12)}
 :root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
 *{box-sizing:border-box;min-width:0}
 html{-webkit-text-size-adjust:100%}
@@ -27,7 +27,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font:15.5px/1.55 Inter,syste
 .sum .tot{text-align:right}
 .sum strong{display:block;font:800 24px Archivo,sans-serif;color:var(--pet);white-space:nowrap;font-variant-numeric:tabular-nums}
 .sum span{font-size:13px;color:var(--mute)}
-.steps{position:sticky;top:calc(env(safe-area-inset-top,0px) + 6px);z-index:4;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;margin:0 0 18px;background:color-mix(in srgb,var(--panel) 88%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding:5px;border-radius:16px;border:1px solid var(--line);box-shadow:var(--shadow)}
+.steps{position:sticky;top:calc(env(safe-area-inset-top,0px) + 6px);z-index:4;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;margin:0 0 18px;background:color-mix(in srgb,var(--beige) 92%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding:5px;border-radius:16px;border:1px solid var(--line);box-shadow:var(--shadow)}
 .steps button{border:0;background:none;color:var(--ink);font:600 12.5px Inter,sans-serif;padding:6px 1px;border-radius:12px;cursor:pointer;min-height:50px;display:flex;flex-direction:column;align-items:center;gap:1px}
 .steps button b{font:800 15px Archivo,sans-serif;color:var(--mute)}
 .steps button.on{background:var(--pet);color:#fff}
@@ -35,40 +35,45 @@ body{margin:0;background:var(--bg);color:var(--ink);font:15.5px/1.55 Inter,syste
 h2{font:700 18px Archivo,sans-serif;margin:26px 0 10px}
 h2:first-child{margin-top:0}
 .lead{margin:0 0 12px;color:var(--mute);font-size:14.5px}
-.plan{width:100%;display:block;background:var(--panel);border:1px solid var(--line);border-radius:16px;touch-action:none;user-select:none;-webkit-user-select:none}
+.plan{width:100%;display:block;background:light-dark(#fbf8f3,#221e19);border:1px solid var(--beigeb);border-radius:16px;touch-action:none;user-select:none;-webkit-user-select:none}
 .plan.big{aspect-ratio:1/1;max-height:70svh}
 .plan.mid{max-height:420px}
-.plan text{font-family:Inter,sans-serif}
+.plan text{font-family:Inter,sans-serif;pointer-events:none;user-select:none}
 .row{display:grid;grid-template-columns:6.5em minmax(0,1fr) 4.6em;align-items:center;gap:10px;margin-bottom:6px}
 .row label{font-weight:500}
 .row output{text-align:right;font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
 input[type=range]{width:100%;accent-color:var(--pet);height:32px}
 .mass{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
-.mass label{display:flex;align-items:center;gap:8px;border:1.5px solid var(--line);border-radius:12px;padding:6px 8px 6px 12px;font-weight:600;font-size:14px;background:var(--panel)}
+.mass label{display:flex;align-items:center;gap:8px;border:1.5px solid var(--beigeb);border-radius:12px;padding:6px 8px 6px 12px;font-weight:600;font-size:14px;background:var(--beige)}
 .mass label.on{border-color:var(--pet);background:var(--petbg)}
 .mass input{font:600 16px Inter,sans-serif;width:100%;padding:6px 4px;border:0;background:none;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums}
 .mass small{color:var(--mute);font-weight:500}
 .chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
-.chip{display:block;text-align:left;border:2px solid var(--line);background:var(--panel);color:var(--ink);border-radius:16px;padding:0;overflow:hidden;cursor:pointer;font:inherit}
+.chip{display:block;text-align:left;border:2px solid var(--beigeb);background:var(--beige);color:var(--ink);border-radius:16px;padding:0;overflow:hidden;cursor:pointer;font:inherit}
 .chip i{display:block;height:84px;background-size:cover;background-position:center}
 .chip span{display:block;padding:8px 11px 10px;font-size:13px;line-height:1.35;color:var(--mute)}
 .chip span b{display:block;font-size:14.5px;color:var(--ink)}
 .chip.on{border-color:var(--pet);box-shadow:0 0 0 2px var(--pet)}
 .seg{display:flex;flex-wrap:wrap;gap:7px}
-.seg button,.add button{border:1.5px solid var(--line);background:var(--panel);color:var(--ink);font:500 14px Inter,sans-serif;padding:8px 13px;border-radius:999px;cursor:pointer;min-height:44px;display:flex;align-items:center;gap:8px;text-align:left}
+.seg button,.add button{border:1.5px solid var(--beigeb);background:var(--beige);color:var(--ink);font:500 14px Inter,sans-serif;padding:8px 13px;border-radius:999px;cursor:pointer;min-height:44px;display:flex;align-items:center;gap:8px;text-align:left}
 .seg button small{color:var(--mute);font-size:12.5px}
-.seg button.on{border-color:var(--pet);background:var(--petbg);color:var(--pet);font-weight:600}
+.seg button.on{border-color:var(--pet);background:var(--pet);color:#fff;font-weight:600}
+.seg button.on small{color:rgba(255,255,255,.85)}
 .add{display:flex;flex-wrap:wrap;gap:7px}
 .add button{min-height:42px;padding:7px 13px}
 .add button::before{content:"+";color:var(--pet);font-weight:700}
 .dot{width:16px;height:16px;border-radius:50%;border:1px solid rgba(0,0,0,.2);flex:none}
 .small{font-size:13px;color:var(--mute);margin:8px 0 0}
 .card{border:1.5px solid var(--pet);border-radius:16px;padding:16px;margin-top:14px;background:var(--panel);box-shadow:var(--shadow)}
+input[type=range]{accent-color:var(--pet)}
 .card h3{font:700 16px Archivo,sans-serif;margin:0 0 6px;display:flex;justify-content:space-between;gap:8px;align-items:center}
 .lbl{font-size:13px;color:var(--mute);margin:12px 0 6px}
 .list{margin-top:14px;border-top:1px solid var(--line)}
 .list button{display:flex;justify-content:space-between;gap:10px;width:100%;border:0;border-bottom:1px solid var(--line);background:none;color:var(--ink);font:14px Inter,sans-serif;padding:11px 2px;cursor:pointer;text-align:left}
-.list button.on{color:var(--pet);font-weight:600}
+.list button.on,.lrow.on button{color:var(--pet);font-weight:600}
+.lrow{display:flex;align-items:stretch;border-bottom:1px solid var(--line)}
+.lrow button{border-bottom:0!important}
+.lrow .x{flex:none;width:48px;justify-content:center!important;color:var(--bad)!important;font-size:16px!important}
 .list span:last-child{color:var(--mute);white-space:nowrap}
 .facts{display:flex;gap:22px;flex-wrap:wrap;margin-top:12px;font-size:14px;color:var(--mute)}
 .facts b{display:block;font:800 21px Archivo,sans-serif;font-variant-numeric:tabular-nums;color:var(--ink)}
@@ -79,19 +84,19 @@ td small{display:block;color:var(--mute);font-size:13px}
 tfoot td{border:0;font:800 18px Archivo,sans-serif;padding-top:12px}
 .acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .btn{border:0;background:var(--pet);color:#fff;font:600 14.5px Inter,sans-serif;padding:11px 16px;border-radius:12px;cursor:pointer;min-height:46px}
-.btn.ghost{background:var(--petbg);color:var(--pet)}
+.btn.ghost{background:var(--beige);color:var(--ink);border:1.5px solid var(--beigeb)}
 .btn.warn{background:none;color:var(--bad);border:1.5px solid currentColor;padding:8px 12px;min-height:38px}
 .note{margin-top:16px;padding:12px 14px;border-left:3px solid var(--brass);background:var(--petbg);border-radius:0 12px 12px 0;font-size:14px}
 .msg{color:var(--bad);font-weight:600;font-size:14px;min-height:1.5em;margin:8px 0 0}
 .cats{display:flex;gap:7px;overflow-x:auto;padding-bottom:4px;margin:0 0 12px;scrollbar-width:none}
 .cats::-webkit-scrollbar{display:none}
-.cats button{flex:none;border:1.5px solid var(--line);background:var(--panel);color:var(--ink);font:600 14px Inter,sans-serif;padding:9px 15px;border-radius:999px;cursor:pointer;min-height:44px;white-space:nowrap}
+.cats button{flex:none;border:1.5px solid var(--beigeb);background:var(--beige);color:var(--ink);font:600 14px Inter,sans-serif;padding:9px 15px;border-radius:999px;cursor:pointer;min-height:44px;white-space:nowrap}
 .cats button.on{background:var(--pet);border-color:var(--pet);color:#fff}
 .models{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
-.models button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;border:1.5px solid var(--line);background:var(--panel);color:var(--ink);font:500 14px Inter,sans-serif;padding:11px 12px;border-radius:14px;cursor:pointer;min-height:64px}
+.models button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;border:1.5px solid var(--beigeb);background:var(--beige);color:var(--ink);font:500 14px Inter,sans-serif;padding:11px 12px;border-radius:14px;cursor:pointer;min-height:64px}
 .models button b{font-weight:600;font-size:14px;line-height:1.3}
 .models button small{color:var(--mute);font-size:12.5px}
-.models button:active{background:var(--petbg)}
+.models button:active{background:var(--beigeb)}
 .gl{font:700 13px Inter,sans-serif;color:var(--mute);margin:14px 0 8px}
 details.all{margin-top:16px;border-top:1px solid var(--line);padding-top:10px}
 details.all summary{cursor:pointer;font-weight:600;color:var(--pet);min-height:40px;display:flex;align-items:center}
@@ -211,25 +216,26 @@ const T={
  wc:{label:'WC',cat:'wc',vars:[{id:'wand',name:'Wand-WC spülrandlos',w:.37,d:.54,price:389},{id:'stand',name:'Stand-WC mit Spülkasten',w:.37,d:.68,price:249},{id:'dusch',name:'Dusch-WC',w:.4,d:.58,price:1490},{id:'bidet',name:'Wand-Bidet',w:.37,d:.54,price:349}]},
  du:{label:'Dusche',cat:'dusche',vars:[{id:'walk',name:'Walk-in 120 × 90',w:1.2,d:.9,price:1290},{id:'walk140',name:'Walk-in 140 × 90',w:1.4,d:.9,price:1490},{id:'eck',name:'Eckdusche 90 × 90 mit Tür',w:.9,d:.9,price:890},{id:'nische',name:'Nischendusche 100 × 90',w:1,d:.9,price:990}],
    arms:[{id:'regen',name:'Regenbrause-Set Aufputz',price:449},{id:'up',name:'Unterputz-Thermostat + Kopfbrause',price:790},{id:'hand',name:'Brausestange',price:189}],
-   opts:{glas:{label:'Abtrennung',def:'klar',list:[{id:'klar',name:'Klarglas rahmenlos'},{id:'schwarz',name:'Glas mit schwarzem Rahmen',price:190},{id:'milch',name:'Milchglas',price:120},{id:'mauerhalb',name:'Gemauert halbhoch + Glas',price:350},{id:'mauer',name:'Gemauerte Wand',price:450}]}}},
+   opts:{boden:{label:'Duschboden',def:'eben',list:[{id:'eben',name:'Bodengleich (gefliest)'},{id:'wanne',name:'Flache Duschwanne',price:-150}]},
+     ablauf:{label:'Ablauf',def:'rinne',list:[{id:'rinne',name:'Duschrinne Edelstahl'},{id:'rinnef',name:'Duschrinne befliesbar (in Fliesenfarbe)',price:80},{id:'rinnes',name:'Duschrinne schwarz',price:60},{id:'wand',name:'Wandablauf (unsichtbar in der Wand)',price:190},{id:'punkt',name:'Punktablauf',price:-40}]},
+     glas:{label:'Abtrennung',def:'klar',list:[{id:'klar',name:'Klarglas rahmenlos'},{id:'schwarz',name:'Glas mit schwarzem Rahmen',price:190},{id:'milch',name:'Milchglas',price:120},{id:'mauerhalb',name:'Gemauert halbhoch + Glas',price:350},{id:'mauer',name:'Gemauerte Wand',price:450}]}}},
  wa:{label:'Badewanne',cat:'dusche',vars:[{id:'r170',name:'Einbauwanne 170 × 75, gefliest',w:1.7,d:.75,price:690},{id:'r180',name:'Einbauwanne 180 × 80, gefliest',w:1.8,d:.8,price:790},{id:'frei',name:'Freistehende Wanne 170 × 80',w:1.7,d:.95,price:1690}],
    arms:[{id:'wand',name:'Wannenarmatur Aufputz',price:199},{id:'stand',name:'Standarmatur bodenstehend',price:590}]},
  ac:{label:'Accessoire',cat:'acc',vars:[{id:'papier',name:'Toilettenpapierhalter',w:.16,d:.1,y:.75,price:39},{id:'ersatz',name:'Ersatzrollenhalter',w:.1,d:.1,y:.45,price:29},{id:'buerste',name:'WC-Bürstengarnitur',w:.1,d:.1,y:.3,price:49},{id:'haken',name:'Handtuchhaken',w:.06,d:.05,y:1.7,price:19},{id:'stange',name:'Handtuchstange 60 cm',w:.6,d:.08,y:1.1,price:49},{id:'ring',name:'Handtuchring',w:.2,d:.07,y:1.1,price:35},{id:'seife',name:'Seifenspender',w:.08,d:.1,y:1.05,price:39},{id:'ablage',name:'Glasablage 50 cm',w:.5,d:.12,y:1.15,price:45},{id:'duschkorb',name:'Duschablage',w:.3,d:.12,y:1.2,price:59},{id:'griff',name:'Haltegriff 60 cm',w:.6,d:.08,y:.85,price:69},{id:'sitz',name:'Duschklappsitz',w:.45,d:.4,y:.48,price:189}],size:['y']},
- hk:{label:'Heizkörper',cat:'bau',vars:[{id:'hk',name:'Handtuchheizkörper 50 × 120',w:.5,d:.1,price:329},{id:'hk60',name:'Handtuchheizkörper 60 × 170',w:.6,d:.1,price:449}]},
+ hk:{label:'Heizkörper',cat:'heiz',vars:[{id:'hk',name:'Handtuchheizkörper 50 × 120',w:.5,d:.1,price:329},{id:'hk60',name:'Handtuchheizkörper 60 × 170',w:.6,d:.1,price:449},{id:'paneel',name:'Design-Heizkörper flach 50 × 180',w:.5,d:.08,price:590}]},
+ li:{label:'Licht',cat:'heiz',vars:[{id:'leiste',name:'LED-Lichtleiste (indirekt)',w:1.2,d:.05,y:2.3,price:149},{id:'wand',name:'Wandleuchte',w:.12,d:.1,y:1.8,price:119}],size:['w','y']},
  tw:{label:'Trennwand',cat:'bau',vars:[{id:'halb',name:'Trennwand an der Wand, halbhoch',w:.12,d:.9,price:0,perM:180},{id:'hoch',name:'Trennwand an der Wand, raumhoch',w:.12,d:.9,price:0,perM:260}],size:['d']},
  fw:{label:'Freie Wand',cat:'bau',free:true,vars:[{id:'halb',name:'Freistehende Wand, halbhoch',w:.12,d:1,price:0,perM:190},{id:'hoch',name:'Freistehende Wand, raumhoch',w:.12,d:1,price:0,perM:270}]},
  vw:{label:'Vorwand',cat:'bau',vars:[{id:'v',name:'Vorwand mit Ablage, 1,10 m',w:1.2,d:.2,price:0,perM:140}],size:['w']},
  ni:{label:'Nische',cat:'bau',open:.12,vars:[{id:'n',name:'Wandnische mit LED',w:.6,h:.4,y:1.1,price:290}],size:['w','h','y']},
  fe:{label:'Fenster',cat:'bau',open:.24,vars:[{id:'f',name:'Fenster (Bestand)',w:.9,h:1,y:1.1,price:0}],size:['w','h','y']},
  tu:{label:'Tür',cat:'bau',open:.16,vars:[{id:'t',name:'Tür (Bestand)',w:.86,h:2.01,y:0,price:0}],size:['w']}};
-const CATS=[{id:'wasch',name:'Waschplatz'},{id:'wc',name:'WC'},{id:'dusche',name:'Dusche & Wanne'},{id:'acc',name:'Accessoires'},{id:'bau',name:'Wände, Heizung, Türen'}];
-const RANGE={w:{vw:[.4,3],ni:[.3,1.5],fe:[.5,1.8],tu:[.7,1.1],sp:[.5,1.6]},h:{ni:[.2,1.2],fe:[.5,1.6]},y:{ni:[.2,1.8],fe:[.3,1.6],ac:[.2,2]},d:{tw:[.3,2.6]}};
+const CATS=[{id:'bau',name:'Tür, Fenster, Wände'},{id:'wasch',name:'Waschplatz'},{id:'wc',name:'WC'},{id:'dusche',name:'Dusche & Wanne'},{id:'heiz',name:'Heizung & Licht'},{id:'acc',name:'Accessoires'}];
+const RANGE={w:{vw:[.4,3],ni:[.3,1.5],fe:[.5,1.8],tu:[.7,1.1],sp:[.5,1.6],li:[.1,3]},h:{ni:[.2,1.2],fe:[.5,1.6]},y:{ni:[.2,1.8],fe:[.3,1.6],ac:[.2,2],li:[.3,2.45]},d:{tw:[.3,2.6]}};
 const FLOOR_TYPES=['wc','wt','du','wa','hk','vw','tw','mo'];
 const PRESETS={rechteck:[[0,0],[2.8,0],[2.8,2.4],[0,2.4]],lform:[[0,0],[3.4,0],[3.4,1.6],[2,1.6],[2,2.9],[0,2.9]],schacht:[[0,0],[2.5,0],[2.5,.45],[3,.45],[3,2.6],[0,2.6]],schlauch:[[0,0],[1.8,0],[1.8,3.6],[0,3.6]]};
 const PRESETN={rechteck:'Rechteck',lform:'L-Form',schacht:'Mit Schacht',schlauch:'Schlauchbad'};
-const DEF=()=>({H:2.5,pts:PRESETS.rechteck.map(p=>[...p]),wall:'weiss',floor:'eiche',grout:'auto',tileH:'voll',finish:'chrom',furn:'eiche',accent:null,accentTile:'navy',mood:'tag',deko:true,nid:9,items:[
- {id:1,type:'tu',v:'t',wall:2,t:2},{id:2,type:'wt',v:'w80',arm:'stand',wall:0,t:.7},{id:3,type:'sp',v:'led',wall:0,t:.7,w:.8},{id:4,type:'wc',v:'wand',wall:0,t:1.65},
- {id:5,type:'du',v:'walk',arm:'regen',wall:1,t:1.8},{id:6,type:'ni',v:'n',wall:1,t:1.75,w:.6,h:.4,y:1.1},{id:7,type:'hk',v:'hk',wall:3,t:1.1},{id:8,type:'fe',v:'f',wall:3,t:1.85,w:.8,h:.9,y:1.2}]});
+const DEF=()=>({H:2.5,pts:PRESETS.rechteck.map(p=>[...p]),wall:'mattweiss',floor:'greigef',grout:'auto',tileH:'voll',finish:'chrom',furn:'eichehell',accent:null,accentTile:'navy',mood:'tag',deko:true,fbh:false,luefter:false,nid:1,items:[]});
 let S=DEF();const VID=new URLSearchParams(location.search).get('variant');let saveT=0;
 const setSaved=t=>{const e=document.getElementById('saved');if(e)e.textContent=t};
 const save=()=>{if(!VID){try{localStorage.setItem('badvr3',JSON.stringify(S))}catch(e){}return}clearTimeout(saveT);setSaved('Speichert …');
@@ -247,7 +253,15 @@ const walls=()=>wallsOf(S.pts);
 function areaOf(p){let s=0;p.forEach((a,i)=>{const b=p[(i+1)%p.length];s+=a[0]*b[1]-b[0]*a[1]});return s/2}
 function dims(it){const v=by(T[it.type].vars,it.v);if(it.type==='fw')return{w:.12,d:Math.hypot(it.b[0]-it.a[0],it.b[1]-it.a[1]),h:it.v==='hoch'?S.H:1.2,v};return{w:it.w??v.w,d:it.d??(v.d||0),h:it.h??v.h,y:it.y??v.y,v}}
 const isFree=it=>!!T[it.type].free;
-function fixItems(){const W=walls();S.items.forEach(it=>{if(isFree(it))return;it.wall=clamp(it.wall,0,W.length-1);const w=dims(it).w,L=W[it.wall].len;it.t=clamp(it.t,Math.min(w/2,L/2),Math.max(L-w/2,L/2))})}
+function mounts(){const out=walls().map((w,i)=>({...w,key:i,label:'Wand '+(i+1)}));let k=0;
+  S.items.filter(isFree).forEach(f=>{k++;const dx=f.b[0]-f.a[0],dz=f.b[1]-f.a[1],l=Math.hypot(dx,dz)||.001,d=[dx/l,dz/l],n=[-d[1],d[0]],h=.06;
+    out.push({key:'f'+f.id+'p',fw:f.id,A:[f.a[0]+n[0]*h,f.a[1]+n[1]*h],B:[f.b[0]+n[0]*h,f.b[1]+n[1]*h],len:l,d,n,label:'Trennwand '+k+' · Seite A'});
+    out.push({key:'f'+f.id+'m',fw:f.id,A:[f.b[0]-n[0]*h,f.b[1]-n[1]*h],B:[f.a[0]-n[0]*h,f.a[1]-n[1]*h],len:l,d:[-d[0],-d[1]],n:[-n[0],-n[1]],label:'Trennwand '+k+' · Seite B'})});
+  return out}
+function mountOf(it,ms){ms=ms||mounts();if(it.host){const m=ms.find(x=>x.key===it.host);if(m)return m}return ms.find(x=>x.key===it.wall)||ms[0]}
+const mkey=it=>it.host||('w'+it.wall);
+const posOf=(it,m)=>{m=m||mountOf(it);const o=it.off||0;return[m.A[0]+m.d[0]*it.t+m.n[0]*o,m.A[1]+m.d[1]*it.t+m.n[1]*o]};
+function fixItems(){const W=walls(),ms=mounts();S.items.forEach(it=>{if(isFree(it))return;if(it.host&&!ms.some(m=>m.key===it.host))delete it.host;if(!it.host)it.wall=clamp(it.wall|0,0,W.length-1);const w=dims(it).w,L=mountOf(it,ms).len;it.t=clamp(it.t,Math.min(w/2,L/2),Math.max(L-w/2,L/2))})}
 function isect(m1,u1,m2,u2){const den=u1[0]*u2[1]-u1[1]*u2[0];if(Math.abs(den)<1e-6)return null;const s=((m2[0]-m1[0])*u2[1]-(m2[1]-m1[1])*u2[0])/den;return[m1[0]+u1[0]*s,m1[1]+u1[1]*s]}
 function offsetPoly(p,t){const W=wallsOf(p),n=W.length;return W.map((w,i)=>{const q=W[(i-1+n)%n];const m2=[w.A[0]-w.n[0]*t,w.A[1]-w.n[1]*t];return isect([q.A[0]-q.n[0]*t,q.A[1]-q.n[1]*t],q.d,m2,w.d)||m2})}
 function segDist(p,a,b){const dx=b[0]-a[0],dz=b[1]-a[1],l=dx*dx+dz*dz;if(!l)return Math.hypot(p[0]-a[0],p[1]-a[1]);const t=clamp(((p[0]-a[0])*dx+(p[1]-a[1])*dz)/l,0,1);return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dz)}
@@ -268,7 +282,7 @@ function autoLayout(){const W=walls(),n=W.length,ord=[...W.keys()].sort((a,b)=>W
   S.nid=id;fixItems();addItem('ac','papier');addItem('ac','buerste');fixItems()}
 function splitWall(i){const w=walls()[i];S.pts.splice(i+1,0,[snap((w.A[0]+w.B[0])/2),snap((w.A[1]+w.B[1])/2)]);S.items.forEach(it=>{if(it.wall>i)it.wall++;else if(it.wall===i&&it.t>w.len/2){it.wall=i+1;it.t-=w.len/2}});if(S.accent!=null&&S.accent>i)S.accent++;selCorner=i+1;selWall=null}
 function delCorner(j){const n=S.pts.length;if(n<=3)return;const W=walls(),prev=(j-1+n)%n;S.items.forEach(it=>{if(it.wall===j){it.wall=prev;it.t+=W[prev].len}});S.pts.splice(j,1);S.items.forEach(it=>{if(it.wall>j)it.wall--});S.accent=null;selCorner=null}
-function normalize(){if(areaOf(S.pts)>=0)return;const W=walls(),n=S.pts.length;S.pts.reverse();S.items.forEach(it=>{if(isFree(it))return;it.t=W[it.wall].len-it.t;it.wall=((n-2-it.wall)%n+n)%n});S.accent=null}
+function normalize(){if(areaOf(S.pts)>=0)return;const W=walls(),n=S.pts.length;S.pts.reverse();S.items.forEach(it=>{if(isFree(it)||it.host)return;it.t=W[it.wall].len-it.t;it.wall=((n-2-it.wall)%n+n)%n});S.accent=null}
 function setLen(i,v){const w=walls()[i],n=S.pts.length,dl=v-w.len;[1,2].forEach(k=>{const j=(i+k)%n;if(j===i)return;S.pts[j]=[+(S.pts[j][0]+w.d[0]*dl).toFixed(3),+(S.pts[j][1]+w.d[1]*dl).toFixed(3)]})}
 
 /* ================= Texturen ================= */
@@ -361,7 +375,7 @@ function build(){
   W.forEach((w,i)=>{
     const g=new THREE.Group();g.position.set(w.A[0],0,w.A[1]);g.rotation.y=Math.atan2(-w.d[1],w.d[0]);room.add(g);
     const sh=new THREE.Shape();sh.moveTo(0,-.02);sh.lineTo(w.len,-.02);sh.lineTo(w.len,H+.01);sh.lineTo(0,H+.01);sh.closePath();const used=[];
-    S.items.filter(it=>it.wall===i&&T[it.type].open).forEach(it=>{const D=dims(it),ww=Math.min(D.w,w.len-.08),x0=clamp(it.t-ww/2,.04,w.len-ww-.04),y0=Math.max(0,D.y),hh=Math.min(D.h,H-y0-.05);
+    S.items.filter(it=>!it.host&&it.wall===i&&T[it.type].open).forEach(it=>{const D=dims(it),ww=Math.min(D.w,w.len-.08),x0=clamp(it.t-ww/2,.04,w.len-ww-.04),y0=Math.max(0,D.y),hh=Math.min(D.h,H-y0-.05);
       if(used.some(u=>x0<u[1]&&x0+ww>u[0]&&y0<u[3]&&y0+hh>u[2]))return;used.push([x0,x0+ww,y0,y0+hh]);
       const p=new THREE.Path();p.moveTo(x0,y0);p.lineTo(x0+ww,y0);p.lineTo(x0+ww,y0+hh);p.lineTo(x0,y0+hh);p.closePath();sh.holes.push(p);it._o={x0,ww,y0,hh}});
     const geo=new THREE.ShapeGeometry(sh);g.add(new THREE.Mesh(geo,S.accent===i?accT:wallT));if(tH<H)g.add(new THREE.Mesh(geo,wallP));
@@ -375,8 +389,8 @@ function build(){
       g.position.set((it.a[0]+it.b[0])/2,0,(it.a[1]+it.b[1])/2);g.rotation.y=Math.atan2(-dz,dx);room.add(g);
       RB(g,L+.12,hh,.12,.003,tileMat(by(WALL,S.wall),(L+.12)/1.2,hh/1.2),0,hh/2,0,.003);if(it.v==='halb')RB(g,L+.14,.02,.14,.004,M.cer,0,hh+.01,0,.003);
       if(it.id===sel){helper=new THREE.BoxHelper(g,0x2ab7c2);scene.add(helper)}return}
-    const w=W[it.wall],D=dims(it),g=new THREE.Group();g.userData.id=it.id;
-    g.position.set(w.A[0]+w.d[0]*it.t,0,w.A[1]+w.d[1]*it.t);g.rotation.y=Math.atan2(-w.d[1],w.d[0]);g.scale.x=it.flip&&!T[it.type].open?-1:1;room.add(g);
+    const w=mountOf(it),D=dims(it),g=new THREE.Group();g.userData.id=it.id;const pp=posOf(it,w);
+    g.position.set(pp[0],0,pp[1]);g.rotation.y=Math.atan2(-w.d[1],w.d[0]);g.scale.x=it.flip&&!T[it.type].open?-1:1;room.add(g);
     const {d,v}=D,ww=D.w,arm=it.arm,me=M.metal;
     if(T[it.type].open){const o=it._o;if(!o)return;delete it._o;const dep=T[it.type].open,ox=o.x0+o.ww/2-it.t;
       const side=o.y0<tH?(S.accent===it.wall?tileMat(at,o.ww/1.2,o.hh/1.2):tileBox(o.ww,o.hh)):M.paint,back=it.type==='ni'?side:it.type==='fe'?M.sky:M.door;
@@ -421,8 +435,11 @@ function build(){
       else if(v.id==='up'){add(g,new THREE.PlaneGeometry(ww+.3,.25),M.halo,0,1.15,.002).userData.fx=1;BX(g,ww+.01,.73,.004,M.dark,0,1.55,.001);[-1,1].forEach(s2=>{const m=BX(g,ww/2-.008,.72,.006,M.mir,s2*ww/4,1.55,.006);m.userData.mir=1})}
       else{add(g,new THREE.PlaneGeometry(ww+.35,.95),M.halo,0,1.55,.002).userData.fx=1;const m=RB(g,ww,.7,.02,.015,M.mir,0,1.55,.025,.003);m.userData.mir=1}
       if(eve){const pl=new THREE.PointLight(0xffe2b8,.5,2.2,2);pl.position.set(0,1.55,.25);g.add(pl)}}
-    if(it.type==='du'){const walkin=v.id.startsWith('walk'),tray=!walkin,base=tray?.035:0,gl=it.glas||'klar';
-      if(tray)RB(g,ww,.035,d,.01,M.cer,0,.0175,d/2,.004);RB(g,Math.min(.7,ww-.2),.006,.06,.003,me,0,base+.003,.09,.002);
+    if(it.type==='du'){const walkin=v.id.startsWith('walk'),tray=it.boden==='wanne',base=tray?.035:0,gl=it.glas||'klar',ab=it.ablauf||'rinne';
+      if(tray){RB(g,ww,.035,d,.01,M.cer,0,.0175,d/2,.004);CY(g,.045,.045,.004,me,0,base+.001,d/2,24)}
+      else if(ab==='punkt')RB(g,.12,.004,.12,.004,me,0,.002,d/2,.001);
+      else if(ab==='wand')BX(g,Math.min(.8,ww-.3),.025,.012,me,0,.04,.006);
+      else{const L=ww-.16;if(ab==='rinnef'){RB(g,L,.004,.075,.003,me,0,.002,.1,.001);RB(g,L-.02,.005,.055,.002,tileMat(by(FLOOR,S.floor),L/1.2,.05),0,.0035,.1,.001)}else RB(g,L,.005,.07,.003,ab==='rinnes'?M.blk:me,0,.0025,.1,.001)}
       const gm=(w2,x,z,rot)=>{const grp=new THREE.Group();grp.position.set(x,0,z);if(rot)grp.rotation.y=Math.PI/2;g.add(grp);
         if(gl==='mauer'){RB(grp,w2,S.H-.02,.1,.003,tileBox(w2,S.H),0,(S.H-.02)/2,0,.003);return grp}
         let y0=base,hgt=1.98;if(gl==='mauerhalb'){RB(grp,w2,1.2,.1,.003,tileBox(w2,1.2),0,.6,0,.003);RB(grp,w2+.01,.02,.12,.004,M.cer,0,1.21,0,.003);y0=1.22;hgt=.8}
@@ -445,7 +462,8 @@ function build(){
         if(arm==='stand'){CY(g,.018,.018,.25,me,ww/2-.07,.705,d/2);TU(g,[[ww/2-.07,.82,d/2],[ww/2-.07,.86,d/2],[ww/2-.12,.86,d/2],[ww/2-.17,.8,d/2]],.012,me)}
         else{RB(g,.2,.07,.012,.01,me,ww/2-.25,.75,.006,.003);TU(g,[[ww/2-.25,.75,.01],[ww/2-.25,.75,.15],[ww/2-.25,.72,.2]],.014,me)}
         if(S.deko)RB(g,.7,.012,.45,.04,M.fabric2,0,.006,d+.3,.005)}}
-    if(it.type==='hk'){const hh=v.id==='hk60'?1.7:1.22,nb=Math.round(hh/.11);[-1,1].forEach(s=>CY(g,.016,.016,hh,me,s*(ww/2-.02),.29+hh/2,.075));for(let k=0;k<nb;k++)CY(g,.011,.011,ww-.04,me,0,.35+k*.105,.075).rotation.z=Math.PI/2;[-1,1].forEach(s=>{CY(g,.012,.012,.07,me,s*(ww/2-.02),.6,.035).rotation.x=Math.PI/2;CY(g,.012,.012,.07,me,s*(ww/2-.02),1.3,.035).rotation.x=Math.PI/2});
+    if(it.type==='hk'&&v.id==='paneel'){RB(g,ww,1.8,.03,.01,me,0,1.1,.06,.004);[-1,1].forEach(k=>CY(g,.012,.012,.05,me,k*(ww/2-.06),.4,.025).rotation.x=Math.PI/2);if(S.deko)RB(g,ww*.8,.04,.06,.015,M.towel,0,1.6,.1,.012)}
+    else if(it.type==='hk'){const hh=v.id==='hk60'?1.7:1.22,nb=Math.round(hh/.11);[-1,1].forEach(s=>CY(g,.016,.016,hh,me,s*(ww/2-.02),.29+hh/2,.075));for(let k=0;k<nb;k++)CY(g,.011,.011,ww-.04,me,0,.35+k*.105,.075).rotation.z=Math.PI/2;[-1,1].forEach(s=>{CY(g,.012,.012,.07,me,s*(ww/2-.02),.6,.035).rotation.x=Math.PI/2;CY(g,.012,.012,.07,me,s*(ww/2-.02),1.3,.035).rotation.x=Math.PI/2});
       if(S.deko){RB(g,ww*.78,.62,.035,.01,M.fabric,0,1.12,.11,.012);RB(g,ww*.78,.08,.08,.03,M.fabric,0,1.43,.08,.02)}}
     if(it.type==='tw'){const hh=v.id==='hoch'?S.H-.01:1.2;RB(g,ww,hh,d,.003,tileMat(by(WALL,S.wall),d/1.2,hh/1.2),0,hh/2,d/2,.003);if(v.id==='halb')RB(g,ww+.02,.02,d+.01,.004,M.cer,0,hh+.01,d/2,.003)}
     if(it.type==='ac'){const y=D.y??v.y;
@@ -459,6 +477,9 @@ function build(){
       else if(v.id==='ablage'){RB(g,ww,.01,.12,.004,M.glass,0,y,.07,.002);[-1,1].forEach(k=>RB(g,.04,.03,.12,.005,me,k*(ww/2-.06),y-.018,.065,.002))}
       else if(v.id==='duschkorb'){RB(g,ww,.035,.11,.006,me,0,y,.06,.003)}
       else if(v.id==='sitz'){RB(g,ww,.03,.38,.01,M.white,0,y,.2,.006);[-1,1].forEach(k=>RB(g,.025,.25,.025,.005,me,k*(ww/2-.04),y-.13,.02,.003))}}
+    if(it.type==='li'){const y=D.y??v.y;if(v.id==='leiste'){BX(g,ww,.03,.05,M.white,0,y,.025);add(g,new THREE.PlaneGeometry(ww+.4,.6),M.halo,0,y-.05,.003).userData.fx=1;BX(g,ww-.02,.006,.01,M.glow,0,y-.016,.04)}
+      else{CY(g,.04,.04,.06,me,0,y,.03).rotation.x=Math.PI/2;CY(g,.045,.05,.12,M.glow,0,y-.02,.08);add(g,new THREE.PlaneGeometry(.5,.6),M.halo,0,y,.003).userData.fx=1}
+      if(eve){const pl=new THREE.PointLight(0xffdcae,.45,2.2,2);pl.position.set(0,y-.1,.2);g.add(pl)}}
     if(it.type==='mo'){
       if(v.id==='hoch'){RB(g,ww,1.7,d,.006,M.furn,0,1.05,d/2,.003);BX(g,ww-.02,.004,.002,M.dark,0,1.05,d+.001)}
       else if(v.id==='seite'){RB(g,ww,.8,d,.006,M.furn,0,.75,d/2,.003);BX(g,ww-.02,.004,.002,M.dark,0,.75,d+.001)}
@@ -533,7 +554,7 @@ bV.onclick=async()=>{if(!xrOK){hint.textContent='VR: Link im Browser der Brille 
 /* ================= Preise ================= */
 function calc(){
   const W=walls(),wt=by(WALL,S.wall),at=by(WALL,S.accentTile),ft=by(FLOOR,S.floor),fin=by(FINISH,S.finish),tH=S.tileH==='voll'?S.H:1.2;
-  const per=W.map((w,i)=>{let a=w.len*tH;S.items.forEach(it=>{if(it.wall!==i)return;const D=dims(it);if(it.type==='tu'||it.type==='fe')a-=D.w*Math.max(0,Math.min(D.y+D.h,tH)-D.y);if(it.type==='ni')a+=(D.w+D.h)*2*.12});return a});
+  const per=W.map((w,i)=>{let a=w.len*tH;S.items.forEach(it=>{if(it.wall!==i||it.host)return;const D=dims(it);if(it.type==='tu'||it.type==='fe')a-=D.w*Math.max(0,Math.min(D.y+D.h,tH)-D.y);if(it.type==='ni')a+=(D.w+D.h)*2*.12});return a});
   let wA=per.reduce((s,a,i)=>s+(i===S.accent?0:a),0),aA=S.accent!=null&&per[S.accent]!=null?per[S.accent]:0;
   S.items.forEach(it=>{const D=dims(it);if(it.type==='vw')wA+=D.w*1.3+.44;if(it.type==='wc'&&it.v!=='stand')wA+=.8;if(it.type==='wa'&&it.v!=='frei')wA+=(D.w+D.d)*.56;
     if(it.type==='tw')wA+=D.d*(it.v==='hoch'?S.H:1.2)*2+(D.d+.12)*.12;if(it.type==='fw')wA+=(D.d+.12)*D.h*2+(D.d+.12)*.12+D.h*.24;if(it.type==='du'&&(it.glas==='mauer'||it.glas==='mauerhalb'))wA+=(D.w+(it.v==='eck'?D.d:0))*(it.glas==='mauer'?S.H:1.2)*2});
@@ -551,6 +572,7 @@ function calc(){
     if(p)l.push([D.v.name,det,p]);
     if(t.arms){const a=by(t.arms,it.arm);l.push([a.name,fin.name+(fin.add?` (+${fin.add} €)`:''),a.price+fin.add])}});
   const spots=Math.min(6,Math.max(1,Math.round(Math.abs(areaOf(S.pts))/1.6)));l.push(['LED-Einbaustrahler',`${spots} Stück à 39 €`,spots*39]);
+  if(S.fbh)l.push(['Fußbodenheizung elektrisch',`${n(fA)} m² à 65 €, mit Thermostat`,fA*65]);if(S.luefter)l.push(['Lüfter mit Feuchtesensor','leise, Unterputz',189]);
   return{l,t:l.reduce((s,x)=>s+x[2],0)}}
 
 /* ================= Grundriss-Zeichnung (SVG) ================= */
@@ -560,10 +582,11 @@ function planSVG(o){
   const W=walls(),vb=viewOf(o.dims?1.05:.55),fs=Math.max(vb[2],vb[3])/26;
   const outer=offsetPoly(S.pts,.14);
   let s=`<path d="M${outer.map(p=>p.join(',')).join('L')}Z M${S.pts.map(p=>p.join(',')).join('L')}Z" fill="var(--wallc)" fill-rule="evenodd"/><polygon points="${S.pts.map(p=>p.join(',')).join(' ')}" fill="var(--floor)"/>`;
-  S.items.filter(it=>!isFree(it)).forEach(it=>{const w=W[it.wall],D=dims(it),f=it.flip&&!T[it.type].open?-1:1,px=w.A[0]+w.d[0]*it.t,pz=w.A[1]+w.d[1]*it.t,on=it.id===sel,ln=`stroke="${on?'var(--pet)':'var(--wallc)'}" stroke-width="${on?.035:.014}"`,hw=D.w/2;let q='';
+  S.items.filter(it=>!isFree(it)).forEach(it=>{const w=mountOf(it),D=dims(it),f=it.flip&&!T[it.type].open?-1:1,[px,pz]=posOf(it,w),on=it.id===sel,ln=`stroke="${on?'var(--pet)':'var(--wallc)'}" stroke-width="${on?.035:.014}"`,hw=D.w/2;let q='';
     if(it.type==='tu')q=`<rect x="${-hw}" y="-.16" width="${D.w}" height=".18" fill="var(--floor)"/><path d="M${-hw} 0 L${-hw} ${D.w} M${-hw} ${D.w} A${D.w} ${D.w} 0 0 0 ${hw} 0" fill="none" ${ln}/>`;
     else if(it.type==='fe')q=`<rect x="${-hw}" y="-.155" width="${D.w}" height=".17" fill="var(--panel)" ${ln}/><line x1="${-hw}" y1="-.07" x2="${hw}" y2="-.07" ${ln}/>`;
     else if(it.type==='ni')q=`<rect x="${-hw}" y="-.12" width="${D.w}" height=".12" fill="#f0c674" ${ln}/>`;
+    else if(it.type==='li')q=`<rect x="${-Math.max(hw,.06)}" y="0" width="${Math.max(D.w,.12)}" height=".05" rx=".02" fill="#f0c674" ${ln}/>`;
     else if(it.type==='ac')q=`<rect x="${-Math.max(hw,.05)}" y="0" width="${Math.max(D.w,.1)}" height=".07" rx=".02" fill="#c9a25e" ${ln}/>`;
     else if(it.type==='tw')q=`<rect x="${-hw}" y="0" width="${D.w}" height="${D.d}" fill="var(--wallc)" ${ln}/>${it.v==='halb'?`<line x1="0" y1=".05" x2="0" y2="${D.d-.05}" stroke="var(--floor)" stroke-width=".015" stroke-dasharray=".05 .04"/>`:''}`;
     else{const z=it.type==='wa'&&it.v==='frei'?.07:0,dd=Math.max(D.d-z,.05);q=`<rect x="${-hw}" y="${z}" width="${D.w}" height="${dd}" rx="${it.type==='wa'&&it.v==='frei'?.3:.02}" fill="${SYM[it.type]}" ${ln}/>`;
@@ -571,7 +594,7 @@ function planSVG(o){
       if(it.type==='wt'){const n=['w120','w140','auf2'].includes(it.v)?2:1;for(let k=0;k<n;k++)q+=`<ellipse cx="${n===2?(k?1:-1)*D.w*.25:0}" cy="${D.d/2+.03}" rx="${Math.min(.2,D.w*.3)}" ry="${Math.min(.14,D.d*.35)}" fill="none" ${ln}/>`}
       if(it.type==='mo'&&it.v==='wm')q+=`<circle cx="0" cy="${D.d/2}" r=".2" fill="none" ${ln}/>`;
       if(it.type==='wa'&&it.v!=='frei')q+=`<rect x="${-hw+.08}" y=".08" width="${D.w-.16}" height="${D.d-.16}" rx=".14" fill="none" ${ln}/>`;
-      if(it.type==='du'){const ms=it.glas==='mauer'||it.glas==='mauerhalb',sc=ms?'var(--wallc)':'#4f9aa6',sw=ms?'.1':'.035';q+=`<path d="M${-hw} 0L${hw} ${D.d}M${hw} 0L${-hw} ${D.d}" ${ln} stroke-dasharray=".05 .04"/><line x1="${-hw}" y1="${D.d}" x2="${it.v.startsWith('walk')?hw-.45:hw}" y2="${D.d}" stroke="${sc}" stroke-width="${sw}"/>`+(it.v==='eck'?`<line x1="${hw}" y1="0" x2="${hw}" y2="${D.d}" stroke="${sc}" stroke-width="${sw}"/>`:'')}
+      if(it.type==='du'){const ms=it.glas==='mauer'||it.glas==='mauerhalb',sc=ms?'var(--wallc)':'#4f9aa6',sw=ms?'.1':'.035';q+=`<path d="M${-hw} 0L${hw} ${D.d}M${hw} 0L${-hw} ${D.d}" ${ln} stroke-dasharray=".05 .04"/>${it.boden!=='wanne'&&['rinne','rinnef','rinnes',undefined].includes(it.ablauf)?`<line x1="${-hw+.08}" y1=".1" x2="${hw-.08}" y2=".1" stroke="#8a8f93" stroke-width=".05"/>`:''}<line x1="${-hw}" y1="${D.d}" x2="${it.v.startsWith('walk')?hw-.45:hw}" y2="${D.d}" stroke="${sc}" stroke-width="${sw}"/>`+(it.v==='eck'?`<line x1="${hw}" y1="0" x2="${hw}" y2="${D.d}" stroke="${sc}" stroke-width="${sw}"/>`:'')}
       if(it.type==='vw')q+=`<path d="${Array.from({length:Math.ceil(D.w/.1)},(_,k)=>`M${-hw+k*.1} ${D.d}L${Math.min(-hw+k*.1+.2,hw)} 0`).join('')}" ${ln} stroke-width=".008"/>`}
     s+=`<g data-i="${o.items?it.id:''}" style="${o.items?'cursor:grab':''}" transform="matrix(${w.d[0]*f},${w.d[1]*f},${w.n[0]},${w.n[1]},${px},${pz})">${q}</g>`});
   W.forEach((w,i)=>{const on=i===selWall;
@@ -611,11 +634,14 @@ document.addEventListener('pointermove',e=>{
   if(drag.k==='w'){const n=S.pts.length,dl=snap((p[0]-drag.p0[0])*drag.n[0]+(p[1]-drag.p0[1])*drag.n[1]);S.pts[drag.i]=[drag.A[0]+drag.n[0]*dl,drag.A[1]+drag.n[1]*dl];S.pts[(drag.i+1)%n]=[drag.B[0]+drag.n[0]*dl,drag.B[1]+drag.n[1]*dl]}
   if(drag.k==='fe'){const it=S.items.find(x=>x.id===drag.id);it[drag.end]=snapEnd(p,it,drag.end)}
   if(drag.k==='fm'){const it=S.items.find(x=>x.id===drag.id),dx=snap(p[0]-drag.p0[0]),dz=snap(p[1]-drag.p0[1]);it.a=[drag.a[0]+dx,drag.a[1]+dz];it.b=[drag.b[0]+dx,drag.b[1]+dz]}
-  if(drag.k==='i'){const it=S.items.find(x=>x.id===drag.id),W=walls();let best=null;W.forEach((w,i)=>{const t=clamp((p[0]-w.A[0])*w.d[0]+(p[1]-w.A[1])*w.d[1],0,w.len),dd=Math.hypot(p[0]-w.A[0]-w.d[0]*t,p[1]-w.A[1]-w.d[1]*t);if(!best||dd<best.dd)best={i,t,dd}});it.wall=best.i;it.t=snap(best.t)}
+  if(drag.k==='i'){const it=S.items.find(x=>x.id===drag.id),D=dims(it),ms=mounts().filter(m=>!T[it.type].open||m.fw==null);let best=null;
+    ms.forEach(m=>{const t=clamp((p[0]-m.A[0])*m.d[0]+(p[1]-m.A[1])*m.d[1],0,m.len),v=(p[0]-m.A[0])*m.n[0]+(p[1]-m.A[1])*m.n[1];if(m.fw!=null&&v<-.04)return;
+      const dd=Math.hypot(p[0]-m.A[0]-m.d[0]*t,p[1]-m.A[1]-m.d[1]*t);if(!best||dd<best.dd)best={m,t,dd,v}});
+    if(best){const m=best.m;if(m.fw!=null)it.host=m.key;else{delete it.host;it.wall=m.key}it.t=snap(best.t);if(it.type==='wa'){const o=best.v-D.d/2;it.off=o>.15?snap(o):0}}}
   queue()});
 document.addEventListener('pointerup',()=>{
   if(stroke){const poly=sketchToPoly(stroke.pts);stroke=null;if(!poly){document.getElementById('stroke').setAttribute('d','');document.getElementById('msg').textContent='Nicht erkannt – bitte den Raum in einem Zug umfahren.';return}
-    S.pts=poly;S.accent=null;autoLayout();sel=selWall=selCorner=null;save();fitOrbit();build();tab='mass';selWall=0;render();return}
+    S.pts=poly;S.accent=null;S.items=[];sel=selWall=selCorner=null;save();fitOrbit();build();tab='mass';selWall=0;render();return}
   if(!drag)return;normalize();drag=null;fixItems();save();build();render()});
 
 /* ================= Panel ================= */
@@ -624,27 +650,29 @@ const seg=(key,opts,cur)=>`<div class="seg">${opts.map(o=>`<button data-k="${key
 const chips=(key,list,cur)=>`<div class="chips">${list.map(t=>`<button class="chip ${cur===t.id?'on':''}" data-k="${key}" data-v="${t.id}"><i style="background-image:url(${swatchURL(t)})"></i><span><b>${t.name}</b>${t.fmt} · ${eur(t.price)}/m²</span></button>`).join('')}</div>`;
 const chipsG=(key,list,cur)=>[...new Set(list.map(t=>t.g))].map(g=>`<p class="gl">${TGROUP[g]||g}</p>`+chips(key,list.filter(t=>t.g===g),cur)).join('');
 const rng=(k,l,min,max,val)=>`<div class="row"><label for="r-${k}">${l}</label><input id="r-${k}" type="range" min="${min}" max="${max}" step=".05" value="${val}" data-r="${k}"><output id="o-${k}">${cm(val)} cm</output></div>`;
-let curCat='wasch';
+let curCat='bau';
 const EXTRA={wc:[['ac','papier'],['ac','ersatz'],['ac','buerste']],dusche:[['ac','duschkorb'],['ac','sitz'],['ni','n'],['tw','halb'],['tw','hoch'],['fw','halb'],['fw','hoch']]};
 function modelsOf(cat){const out=[];Object.entries(T).forEach(([type,t])=>{if(t.cat===cat)t.vars.forEach(v=>out.push({type,v}))});(EXTRA[cat]||[]).forEach(([type,id])=>out.push({type,v:by(T[type].vars,id)}));return out}
 function freeGaps(skip){const W=walls(),n=W.length;return W.map((w,i)=>{const bl=[];
-  S.items.forEach(it=>{if(it.id===skip)return;const isF=(FLOOR_TYPES.includes(it.type)&&!(it.type==='mo'&&it.v==='regal'))||it.type==='tu';if(!isF)return;const D=dims(it),ww=D.w,dep=it.type==='tu'?D.w:D.d;
+  S.items.forEach(it=>{if(it.id===skip||it.host||isFree(it))return;const isF=(FLOOR_TYPES.includes(it.type)&&!(it.type==='mo'&&it.v==='regal'))||it.type==='tu';if(!isF)return;const D=dims(it),ww=D.w,dep=it.type==='tu'?D.w:D.d;
     if(it.wall===i)bl.push([it.t-ww/2-.05,it.t+ww/2+.05]);
     const prev=(i-1+n)%n,next=(i+1)%n;if(it.wall===prev&&W[prev].len-(it.t+ww/2)<.3)bl.push([0,dep+.05]);if(it.wall===next&&it.t-ww/2<.3)bl.push([w.len-dep-.05,w.len])});
   bl.sort((a,b)=>a[0]-b[0]);const gaps=[];let x=0;bl.forEach(b=>{if(b[0]>x)gaps.push([x,b[0]]);x=Math.max(x,b[1])});if(x<w.len)gaps.push([x,w.len]);return gaps})}
 function smartPlace(n){const W=walls(),D=dims(n),near=ty=>S.items.find(i=>i.type===ty&&i.id!==n.id);
-  if(n.type==='sp'){const w=near('wt');if(w){n.wall=w.wall;n.t=w.t;n.w=clamp(dims(w).w,...RANGE.w.sp);return true}}
+  if(n.type==='li'&&n.v==='leiste'){const w=near('sp')||near('wt');if(w){n.wall=w.wall;if(w.host)n.host=w.host;n.t=w.t;n.w=clamp(dims(w).w+.2,.3,3);return true}}
+  if(n.type==='li'&&n.v==='wand'){const w=near('sp')||near('wt');if(w){n.wall=w.wall;if(w.host)n.host=w.host;n.t=w.t+dims(w).w/2+.15;return true}}
+  if(n.type==='sp'){const w=near('wt');if(w){n.wall=w.wall;if(w.host)n.host=w.host;n.t=w.t;n.w=clamp(dims(w).w,...RANGE.w.sp);return true}}
   if(n.type==='ac'){const anc={papier:'wc',ersatz:'wc',buerste:'wc',griff:'wc',seife:'wt',ablage:'wt',ring:'wt',duschkorb:'du',sitz:'du',haken:'du',stange:'hk'}[n.v];const a=near(anc)||near('wt');
-    if(a){const ad=dims(a),L=W[a.wall].len;n.wall=a.wall;let t;
+    if(a){const ad=dims(a),L=mountOf(a).len;n.wall=a.wall;if(a.host)n.host=a.host;let t;
       if(['duschkorb','sitz','ablage'].includes(n.v))t=a.t+(n.v==='duschkorb'?Math.min(.3,ad.w/4):0);
       else{const off=ad.w/2+Math.max(.12,D.w/2+.06),side=['buerste','ersatz'].includes(n.v)?-1:1;t=a.t+side*off;if(t<D.w/2+.05||t>L-D.w/2-.05)t=a.t-side*off}
-      if(n.v==='ablage')n.y=1.12;const ny=n.y??D.y,others=S.items.filter(i=>i.type==='ac'&&i.id!==n.id&&i.wall===a.wall);
-      const solid=S.items.filter(i=>i.wall===a.wall&&i.id!==n.id&&(['wt','wc','vw','mo','hk','tw','wa'].includes(i.type)||(i.type==='du'&&!['duschkorb','sitz','haken'].includes(n.v))));
+      if(n.v==='ablage')n.y=1.12;const ny=n.y??D.y,others=S.items.filter(i=>i.type==='ac'&&i.id!==n.id&&mkey(i)===mkey(a));
+      const solid=S.items.filter(i=>mkey(i)===mkey(a)&&i.id!==n.id&&(['wt','wc','vw','mo','hk','tw','wa'].includes(i.type)||(i.type==='du'&&!['duschkorb','sitz','haken'].includes(n.v))));
       const free=tt=>tt>=D.w/2&&tt<=L-D.w/2&&!others.some(o=>{const od=dims(o);return Math.abs(o.t-tt)<(od.w+D.w)/2+.04&&Math.abs((o.y??od.y)-ny)<.22})&&(ny>1.3&&n.v!=='ablage'||!solid.some(o=>{const od=dims(o);return Math.abs(o.t-tt)<(od.w+D.w)/2+.02&&!(o.type==='wt'&&['seife','ablage'].includes(n.v))}));
       let best=snap(clamp(t,D.w/2,L-D.w/2));for(let k=0;k<=8;k++){const c1=snap(t+k*.12*(t>=a.t?1:-1)),c2=snap(t-k*.12*(t>=a.t?1:-1));if(free(c1)){best=c1;break}if(free(c2)){best=c2;break}}
       n.t=best;return true}}
-  if(n.type==='ni'){const du=near('du');if(du){n.wall=du.wall;n.t=du.t;return true}}
-  if(n.type==='tw'){const du=near('du');if(du){const dd=dims(du),L=W[du.wall].len,atEnd=du.t>L/2;n.wall=du.wall;n.t=snap(du.t+(atEnd?-1:1)*(dd.w/2+.06));n.d=dd.d;return true}}
+  if(n.type==='ni'){const du=near('du');if(du&&!du.host){n.wall=du.wall;n.t=du.t;return true}}
+  if(n.type==='tw'){const du=near('du');if(du&&!du.host){const dd=dims(du),L=W[du.wall].len,atEnd=du.t>L/2;n.wall=du.wall;n.t=snap(du.t+(atEnd?-1:1)*(dd.w/2+.06));n.d=dd.d;return true}}
   if(T[n.type].open){let bi=0;W.forEach((w,i)=>{if(!S.items.some(it=>it.wall===i&&T[it.type].open)&&w.len>W[bi].len)bi=i});n.wall=bi;n.t=snap(W[bi].len/2);return true}
   const corner=n.type==='du'||n.type==='wa'||n.type==='tw';const need=D.w+.02;let best=null;
   freeGaps(n.id).forEach((gs,i)=>gs.forEach(g=>{const len=g[1]-g[0];if(len<need)return;const L=W[i].len,atC=g[0]<.01||g[1]>L-.01;const score=len+(corner&&atC?10:0);if(!best||score>best.score)best={i,g,score,atC,L}}));
@@ -664,7 +692,7 @@ function addItem(type,vid){const t=T[type],v=by(t.vars,vid),n={id:S.nid++,type,v
   Object.entries(t.opts||{}).forEach(([k,o])=>n[k]=o.def);if((t.size||[]).includes('w'))n.w=v.w;if(v.h)n.h=v.h;if(v.y!=null)n.y=v.y;if((t.size||[]).includes('d'))n.d=v.d;
   if(T[type].free){const xs=S.pts.map(p=>p[0]),zs=S.pts.map(p=>p[1]),cx=snap((Math.min(...xs)+Math.max(...xs))/2),cz=snap((Math.min(...zs)+Math.max(...zs))/2);delete n.wall;delete n.t;n.a=[cx-.5,cz];n.b=[cx+.5,cz];S.items.push(n);return {n,ok:true}}
   const ok=smartPlace(n);S.items.push(n);return {n,ok}}
-function itemCard(){const it=S.items.find(x=>x.id===sel);if(!it)return'';const t=T[it.type],D=dims(it),W=walls(),w=W[it.wall];
+function itemCard(){const it=S.items.find(x=>x.id===sel);if(!it)return'';const t=T[it.type],D=dims(it),W=walls(),w=isFree(it)?null:mountOf(it);
   if(isFree(it))return `<div class="card"><h3>${D.v.name}<button class="btn warn" data-act="del">Entfernen</button></h3>
     <p class="small" style="margin-top:0">Im Grundriss die <b>goldenen Punkte</b> an den Enden ziehen. Kommt ein Ende in die Nähe einer Wand oder einer anderen Trennwand, rastet es dort ein (T-Lösung). Die ganze Wand verschiebst du, indem du sie in der Mitte ziehst.</p>
     <div class="lbl">Höhe</div>${seg('iv',t.vars.map(x=>({id:x.id,name:x.id==='halb'?'Halbhoch 1,20 m':'Raumhoch'})),it.v)}
@@ -673,9 +701,10 @@ function itemCard(){const it=S.items.find(x=>x.id===sel);if(!it)return'';const t
   if(t.vars.length>1)h+=`<div class="lbl">Modell</div>${seg('iv',t.vars,it.v)}`;
   Object.entries(t.opts||{}).forEach(([k,o])=>{h+=`<div class="lbl">${o.label}</div>${seg('io-'+k,o.list.map(x=>({...x,price:x.price>0?x.price:0})),it[k]||o.def)}`});
   if(t.arms)h+=`<div class="lbl">Armatur · ${by(FINISH,S.finish).name}</div>${seg('ia',t.arms,it.arm)}`;
-  h+=`<div class="lbl">Position auf Wand ${it.wall+1} (Mitte ab Ecke ${it.wall+1})</div>${rng('t','Abstand',0,w.len.toFixed(2),it.t)}`;
+  h+=`<div class="lbl">Position auf ${w.label} (Mitte ab Wandanfang)</div>${rng('t','Seitlich',0,w.len.toFixed(2),it.t)}`;
+  if(it.type==='wa')h+=rng('off','Abstand zur Wand',0,2.5,it.off||0)+'<p class="small" style="margin-top:0">Für eine Wanne frei im Raum: Abstand erhöhen oder die Wanne im Plan in den Raum ziehen.</p>';
   (t.size||[]).forEach(k=>{const r=RANGE[k][it.type];h+=rng(k,{w:'Breite',h:'Höhe',y:it.type==='ac'?'Höhe':'Unterkante',d:'Länge'}[k],r[0],r[1],D[k])});
-  h+=`<div class="lbl">Wand</div>${seg('iw',W.map((_,i)=>({id:i,name:'W'+(i+1)})),it.wall)}`;
+  h+=`<div class="lbl">An welcher Wand</div>${seg('iw',mounts().filter(m=>!t.open||m.fw==null).map(m=>({id:m.key,name:m.label})),mkey(it).replace(/^w/,''))}`;
   if(!t.open)h+=`<div class="acts"><button class="btn ghost" data-act="flip">Spiegeln</button></div>`;
   return h+'</div>'}
 function render(){
@@ -695,15 +724,17 @@ function render(){
     <p class="small">Trennwände (z. B. zwischen Dusche und WC) setzt du unter „Einrichten“ → „Wände, Heizung, Türen“.</p>`}
   if(tab==='obj'){const mods=modelsOf(curCat);
     h=`<h2>Einrichten</h2><p class="lead">Kategorie wählen und ein Teil antippen. Die App stellt es an eine passende Stelle, danach kannst du es im Plan ziehen.</p>
+    ${S.items.length?'':'<p class="note" style="margin:0 0 12px">Das Bad ist noch leer. Fang am besten mit Tür und Fenster an, dann Waschplatz, WC und Dusche.</p>'}
     <div class="cats">${CATS.map(c=>`<button data-cat="${c.id}" class="${c.id===curCat?'on':''}">${c.name}</button>`).join('')}</div>
     <div class="models">${mods.map(m=>`<button data-addv="${m.type}:${m.v.id}"><b>${m.v.name}</b><small>${m.v.perM?eur(m.v.perM)+' pro m':m.v.price?eur(m.v.price):'ohne Aufpreis'}</small></button>`).join('')}</div>
     <p class="msg" id="omsg"></p>${itemCard()}
     <h2>Grundriss</h2>${planSVG({items:1,walls:1,labels:1})}<p class="small">Teile im Plan ziehen, sie rasten an der nächsten Wand ein. Im 3D-Bild antippen zum Auswählen.</p>
-    <details class="all"><summary>Alle Teile im Bad (${S.items.length})</summary><div class="list">${S.items.map(it=>`<button data-pick="${it.id}" class="${it.id===sel?'on':''}"><span>${dims(it).v.name}</span><span>${isFree(it)?'frei':'W'+(it.wall+1)}</span></button>`).join('')}</div></details>
+    <h2>Im Bad (${S.items.length})</h2>${S.items.length?`<div class="list">${S.items.map(it=>`<div class="lrow${it.id===sel?' on':''}"><button data-pick="${it.id}"><span>${dims(it).v.name}</span><span>${isFree(it)?'frei':mountOf(it).label.replace(' · ',' ')}</span></button><button class="x" data-delid="${it.id}" aria-label="${dims(it).v.name} entfernen">✕</button></div>`).join('')}</div>`:'<p class="small">Noch leer.</p>'}
     <h2>Deko</h2>${seg('deko',[{id:true,name:'Handtücher, Pflanzen'},{id:false,name:'Ohne'}],S.deko)}`}
   if(tab==='mat'){h=`<h2>Wandfliese</h2>${chipsG('wall',WALL,S.wall)}<h2>Fliesenhöhe</h2>${seg('tileH',[{id:'voll',name:'Raumhoch'},{id:'halb',name:'Halbhoch 1,20 m'}],S.tileH)}
     <h2>Akzentwand</h2>${seg('accent',[{id:'',name:'Keine'},...walls().map((_,i)=>({id:i,name:'W'+(i+1)}))],S.accent??'')}${S.accent!=null?`<div style="height:10px"></div>${chipsG('accentTile',WALL,S.accentTile)}`:''}
     <h2>Boden</h2>${chipsG('floor',FLOOR,S.floor)}<h2>Fugenfarbe</h2>${seg('grout',GROUT,S.grout)}
+    <h2>Technik</h2><div class="lbl">Fußbodenheizung</div>${seg('fbh',[{id:false,name:'Nein'},{id:true,name:'Ja, elektrisch (65 € pro m²)'}],!!S.fbh)}<div class="lbl">Lüfter mit Feuchtesensor</div>${seg('luefter',[{id:false,name:'Nein'},{id:true,name:'Ja (189 €)'}],!!S.luefter)}
     <h2>Armaturen</h2>${seg('finish',FINISH.map(f=>({...f,name:f.name+(f.add?` +${f.add} €`:'')})),S.finish)}<h2>Möbelfront</h2>${seg('furn',FURN,S.furn)}`}
   if(tab==='ang')h=`<h2>Materialliste</h2><div style="overflow-x:auto"><table><tbody>${c.l.map(x=>`<tr><td>${x[0]}<small>${x[1]}</small></td><td>${eur(x[2])}</td></tr>`).join('')}</tbody><tfoot><tr><td>Summe Material</td><td>${eur(c.t)}</td></tr></tfoot></table></div>
     <div class="acts"><button class="btn" data-act="copy">Liste kopieren</button><button class="btn ghost" data-act="reset">Neu beginnen</button></div><p class="note">Beispielpreise für den Prototyp. Montage, Demontage und Installation kalkuliert der Handwerksbetrieb separat.</p>`;
@@ -712,7 +743,8 @@ function render(){
 }
 pane.addEventListener('click',e=>{
   const it=S.items.find(x=>x.id===sel),a=e.target.closest('[data-act]'),k=e.target.closest('[data-k]'),ad=e.target.closest('[data-add]'),pick=e.target.closest('[data-pick]');
-  const cat=e.target.closest('[data-cat]'),addv=e.target.closest('[data-addv]');
+  const cat=e.target.closest('[data-cat]'),addv=e.target.closest('[data-addv]'),dl=e.target.closest('[data-delid]');
+  if(dl){S.items=S.items.filter(i=>i.id!==+dl.dataset.delid);if(sel===+dl.dataset.delid)sel=null;fixItems();save();build();render();return}
   if(cat){curCat=cat.dataset.cat;render();return}
   if(addv){const [ty,vid]=addv.dataset.addv.split(':');const r=addItem(ty,vid);sel=r.n.id;fixItems();save();build();render();
     const m=document.getElementById('omsg');if(m)m.textContent=r.ok?'':'Kein freier Platz gefunden – bitte im Plan an die richtige Stelle ziehen.';
@@ -720,10 +752,10 @@ pane.addEventListener('click',e=>{
   if(ad){const r=addItem(ad.dataset.add,T[ad.dataset.add].vars[0].id);sel=r.n.id}
   else if(pick)sel=+pick.dataset.pick;
   else if(k){const key=k.dataset.k,v=k.dataset.v;
-    if(key==='preset'){S.pts=PRESETS[v].map(p=>[...p]);S.accent=null;autoLayout();sel=selCorner=null;selWall=0;fitOrbit();tab='mass'}
+    if(key==='preset'){S.pts=PRESETS[v].map(p=>[...p]);S.accent=null;S.items=[];sel=selCorner=null;selWall=0;fitOrbit();tab='mass'}
     else if(key==='iv'&&it){it.v=v;const nv=by(T[it.type].vars,v);if((T[it.type].size||[]).includes('w')&&it.type!=='vw')it.w=nv.w;if(it.type==='ac')it.y=nv.y}
-    else if(key==='ia'&&it)it.arm=v;else if(key==='iw'&&it)it.wall=+v;else if(key.startsWith('io-')&&it)it[key.slice(3)]=v;
-    else if(key==='deko')S.deko=v==='true';else if(key==='accent')S.accent=v===''?null:+v;else S[key]=v}
+    else if(key==='ia'&&it)it.arm=v;else if(key==='iw'&&it){if(String(v).startsWith('f'))it.host=v;else{delete it.host;it.wall=+v}}else if(key.startsWith('io-')&&it)it[key.slice(3)]=v;
+    else if(key==='deko')S.deko=v==='true';else if(key==='fbh'||key==='luefter')S[key]=v==='true';else if(key==='accent')S.accent=v===''?null:+v;else S[key]=v}
   else if(a){const x=a.dataset.act;
     if(x==='del'&&it){S.items=S.items.filter(i=>i!==it);sel=null}
     if(x==='flip'&&it)it.flip=!it.flip;
@@ -810,7 +842,7 @@ function segCross(p,q,a,b){const cr=(x1,y1,x2,y2)=>x1*y2-y1*x2,r=[q[0]-p[0],q[1]
   const t=cr(a[0]-p[0],a[1]-p[1],v[0],v[1])/den,u=cr(a[0]-p[0],a[1]-p[1],r[0],r[1])/den;return t>.001&&t<.999&&u>=-.03&&u<=1.03}
 function walkBlocked(p,q){return walls().some(w=>segCross(p,q,w.A,w.B))||S.items.filter(isFree).some(f=>segCross(p,q,f.a,f.b))}
 function insideRoom(x,z){let c=false;S.pts.forEach((a,i)=>{const b=S.pts[(i+1)%S.pts.length];if((a[1]>z)!==(b[1]>z)&&x<(b[0]-a[0])*(z-a[1])/(b[1]-a[1])+a[0])c=!c});return c}
-function inObstacle(x,z){const W=walls();return S.items.some(it=>{if(isFree(it)||!FLOOR_TYPES.includes(it.type)||it.type==='du'||(it.type==='mo'&&it.v==='regal'))return false;const w=W[it.wall],D=dims(it),rx=x-w.A[0],rz=z-w.A[1],u=rx*w.d[0]+rz*w.d[1],v=rx*w.n[0]+rz*w.n[1];return u>it.t-D.w/2-.15&&u<it.t+D.w/2+.15&&v<D.d+.15})}
+function inObstacle(x,z){return S.items.some(it=>{if(isFree(it)||!FLOOR_TYPES.includes(it.type)||it.type==='du'||(it.type==='mo'&&it.v==='regal'))return false;const w=mountOf(it),D=dims(it),o=it.off||0,rx=x-w.A[0],rz=z-w.A[1],u=rx*w.d[0]+rz*w.d[1],v=rx*w.n[0]+rz*w.n[1];return u>it.t-D.w/2-.15&&u<it.t+D.w/2+.15&&v>o-.15&&v<o+D.d+.15})}
 function tourSpots(maxN){const W=walls(),xs=S.pts.map(p=>p[0]),zs=S.pts.map(p=>p[1]),cand=[];
   const okPt=(x,z)=>insideRoom(x,z)&&W.every(w=>segDist([x,z],w.A,w.B)>=.4)&&S.items.filter(isFree).every(f=>segDist([x,z],f.a,f.b)>=.35)&&!inObstacle(x,z);
   for(let x=Math.min(...xs)+.4;x<=Math.max(...xs)-.4+1e-9;x+=.15)for(let z=Math.min(...zs)+.4;z<=Math.max(...zs)-.4+1e-9;z+=.15)if(okPt(x,z))cand.push([+x.toFixed(2),+z.toFixed(2)]);
