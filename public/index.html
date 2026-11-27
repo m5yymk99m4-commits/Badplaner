@@ -144,8 +144,8 @@ const WISH={
   wc:{l:'WC',o:['Wand-WC','Dusch-WC','Egal']},
   stauraum:{l:'Stauraum',o:['Wenig','Normal','Viel']}};
 // Mini-Grundriss als Vorschaubild
-const DIM={wc:{wand:[.37,.54],stand:[.37,.68],dusch:[.4,.58]},wt:{w60:[.6,.46],w80:[.8,.48],w120:[1.2,.48],auf:[1,.5]},du:{walk:[1.2,.9],eck:[.9,.9],nische:[1,.9]},wa:{r170:[1.7,.75],r180:[1.8,.8],frei:[1.7,.95]},hk:{hk:[.5,.1]},vw:{v:[1.2,.2]}};
-const FLOORC={eiche:'#c79a6a',anthrazit:'#55585c',terrazzo:'#e3ddd2',marmorb:'#eeebe5'},WALLC={weiss:'#3b4544',beton:'#8d8b85',salbei:'#6f8c70',marmor:'#a9a59d',navy:'#23395b'},FURNC={eiche:'#a57a4f',weiss:'#f3f3f1',anth:'#3a3c40',gruen:'#7d917d'};
+const DIM={wc:{wand:[.37,.54],stand:[.37,.68],dusch:[.4,.58],bidet:[.37,.54]},wt:{h45:[.45,.32],w60:[.6,.46],w80:[.8,.48],w100:[1,.48],w120:[1.2,.48],w140:[1.4,.48],auf:[1,.5],auf2:[1.4,.5]},du:{walk:[1.2,.9],walk140:[1.4,.9],eck:[.9,.9],nische:[1,.9]},wa:{r170:[1.7,.75],r180:[1.8,.8],frei:[1.7,.95]},hk:{hk:[.5,.1],hk60:[.6,.1]},vw:{v:[1.2,.2]},tw:{halb:[.12,.9],hoch:[.12,.9]},mo:{hoch:[.4,.35],seite:[.4,.35],wm:[.62,.62]}};
+const FLOORC={eiche:'#c79a6a',eichehell:'#d6b88f',nuss:'#7a5539',anthrazit:'#55585c',schwarzf:'#2e2e2f',terrazzo:'#e3ddd2',marmorb:'#eeebe5',weissf:'#ebe9e4',grauf:'#cfcdc8',greigef:'#bdb3a4',sandf:'#d0c0a3',betonf:'#8f8c86'},WALLC={weiss:'#3b4544',mattweiss:'#5a554c',hellgrau:'#8f8d88',greige:'#9c9282',sand:'#a8987b',anthw:'#57595c',schwarzw:'#2a2a2b',beton:'#8d8b85',marmor:'#a9a59d',travertin:'#a99a83',salbei:'#6f8c70',creme:'#b9ab8c',rosa:'#b98b7f',hellblau:'#7d9cb0',navy:'#23395b'},FURNC={eiche:'#a57a4f',eichehell:'#cfae86',nuss:'#6a4732',weiss:'#f3f3f1',weissm:'#ecebe6',beige:'#d7cbb8',anth:'#3a3c40',gruen:'#7d917d'};
 function planThumb(pl){
   if(!pl||!pl.pts||pl.pts.length<3)return'<svg viewBox="0 0 1 1"></svg>';
   const P=pl.pts,xs=P.map(p=>p[0]),zs=P.map(p=>p[1]),pad=.25,x0=Math.min(...xs)-pad,z0=Math.min(...zs)-pad,vw=Math.max(...xs)-x0+pad,vh=Math.max(...zs)-z0+pad;
@@ -154,8 +154,9 @@ function planThumb(pl){
   (pl.items||[]).forEach(it=>{const w=W[it.wall];if(!w)return;const f=it.flip?-1:1,px=w.A[0]+w.d[0]*it.t,pz=w.A[1]+w.d[1]*it.t,m=`matrix(${w.d[0]*f},${w.d[1]*f},${w.n[0]},${w.n[1]},${px},${pz})`;
     if(it.type==='tu'){const tw=it.w||.86;s+=`<g transform="${m}"><rect x="${-tw/2}" y="-.06" width="${tw}" height=".1" fill="${FLOORC[pl.floor]||'#eee'}"/><path d="M${-tw/2} 0V${tw}A${tw} ${tw} 0 0 0 ${tw/2} 0" fill="none" stroke="#7d8a88" stroke-width=".025"/></g>`;return}
     if(it.type==='fe'){const tw=it.w||.9;s+=`<rect transform="${m}" x="${-tw/2}" y="-.06" width="${tw}" height=".08" fill="#9fd0e8"/>`;return}
-    const dm=(DIM[it.type]||{})[it.v];if(!dm)return;const ww=it.w||dm[0],dd=dm[1];
-    const fill=it.type==='wt'?(FURNC[pl.furn]||'#a57a4f'):it.type==='du'?'#cfe8ee':it.type==='hk'||it.type==='vw'?'#b9bfc0':'#ffffff';
+    const dm=(DIM[it.type]||{})[it.v];if(!dm)return;const ww=it.w||dm[0],dd=it.d||dm[1];
+    if(it.type==='tw'){s+=`<rect transform="${m}" x="${-ww/2}" y="0" width="${ww}" height="${dd}" fill="${wc}"/>`;return}
+    const fill=it.type==='wt'||it.type==='mo'&&it.v!=='wm'?(FURNC[pl.furn]||'#a57a4f'):it.type==='du'?'#cfe8ee':it.type==='hk'||it.type==='vw'?'#b9bfc0':'#ffffff';
     const rx=it.type==='wa'&&it.v==='frei'?.3:.03;s+=`<rect transform="${m}" x="${-ww/2}" y="0" width="${ww}" height="${dd}" rx="${rx}" fill="${fill}" stroke="#55605e" stroke-width=".02"/>`;
     if(it.type==='wc')s+=`<ellipse transform="${m}" cx="0" cy="${dd*.6}" rx=".14" ry="${dd*.33}" fill="none" stroke="#55605e" stroke-width=".02"/>`;});
   return`<svg viewBox="${x0} ${z0} ${vw} ${vh}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${s}</svg>`}
