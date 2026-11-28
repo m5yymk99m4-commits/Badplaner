@@ -2,6 +2,7 @@
 // Übersetzt Kundenwünsche + Grundriss in fertige Planungsvarianten.
 // Spricht die Claude-API von Anthropic an. Kundenname und Adresse werden NICHT gesendet.
 'use strict';
+const GEO = require('./public/geo.js');
 
 // ---------- Katalog (muss zu public/planner.html passen) ----------
 const CATALOG = {
@@ -11,9 +12,9 @@ const CATALOG = {
     opts: { unterschrank: { key: 'sch', list: { schub: 'Schubladen', tuer: 'Türen', offen: 'offen (Ablage), -120 €' } } } },
   sp: { label: 'Spiegel', vars: { led: { name: 'LED-Spiegel', w: .8, d: .03, price: 249 }, schrank: { name: 'Spiegelschrank', w: .8, d: .16, price: 549 }, up: { name: 'Spiegelschrank Unterputz', w: .8, d: .03, price: 890 }, rund: { name: 'Rundspiegel Ø 60', w: .6, d: .03, price: 179 }, oval: { name: 'Ovaler Spiegel', w: .55, d: .03, price: 159 }, pur: { name: 'Spiegel ohne Licht', w: .8, d: .02, price: 89 } }, size: { w: [.5, 1.6] } },
   mo: { label: 'Möbel', vars: { hoch: { name: 'Hochschrank 40 cm', w: .4, d: .35, price: 590 }, seite: { name: 'Seitenschrank 40 cm', w: .4, d: .35, price: 390 }, regal: { name: 'Wandregal 60 cm (hängt über 1,25 m)', w: .6, d: .2, price: 149 }, wm: { name: 'Platz für Waschmaschine', w: .62, d: .62, price: 0 } } },
-  du: { label: 'Dusche', vars: { walk: { name: 'Walk-in 120 × 90', w: 1.2, d: .9, price: 1290 }, walk140: { name: 'Walk-in 140 × 90', w: 1.4, d: .9, price: 1490 }, eck: { name: 'Eckdusche 90 × 90 mit Tür', w: .9, d: .9, price: 890 }, nische: { name: 'Nischendusche 100 × 90 (zwischen zwei Wänden)', w: 1, d: .9, price: 990 } },
+  du: { label: 'Dusche (Größe passt sich automatisch der Nische/Ecke an – Breite und Tiefe ergeben sich aus den Wänden ringsum)', vars: { flex: { name: 'Dusche nach Maß (füllt Nische oder Ecke genau aus)', w: 1.2, d: .9, price: 1140 } },
     arms: { regen: { name: 'Regenbrause-Set Aufputz', price: 449 }, up: { name: 'Unterputz-Thermostat + Kopfbrause', price: 790 }, hand: { name: 'Brausestange', price: 189 } },
-    opts: { boden: { key: 'boden', list: { eben: 'bodengleich gefliest (modern, Standard)', wanne: 'flache Duschwanne -150 €' } }, ablauf: { key: 'ablauf', list: { rinne: 'Duschrinne Edelstahl', rinnef: 'befliesbare Duschrinne in Fliesenfarbe +80 €', rinnes: 'Duschrinne schwarz +60 €', wand: 'Wandablauf, unsichtbar +190 €', punkt: 'Punktablauf -40 €' } }, trennung: { key: 'glas', list: { klar: 'Klarglas rahmenlos', schwarz: 'Glas mit schwarzem Rahmen +190 €', milch: 'Milchglas +120 €', mauerhalb: 'gemauert halbhoch + Glas darüber +350 €', mauer: 'gemauerte Wand raumhoch +450 €' } } } },
+    opts: { boden: { key: 'boden', list: { eben: 'bodengleich gefliest (modern, Standard)', wanne: 'flache Duschwanne nach Maß, genau so groß wie die Nische +90 €' } }, ablauf: { key: 'ablauf', list: { rinne: 'Duschrinne Edelstahl', rinnef: 'befliesbare Duschrinne in Fliesenfarbe +80 €', rinnes: 'Duschrinne schwarz +60 €', wand: 'Wandablauf, unsichtbar +190 €', punkt: 'Punktablauf -40 €' } }, trennung: { key: 'glas', list: { klar: 'Klarglas rahmenlos', schwarz: 'Glas mit schwarzem Rahmen +190 €', milch: 'Milchglas +120 €', mauerhalb: 'gemauert halbhoch + Glas darüber +350 €', mauer: 'gemauerte Wand raumhoch +450 €', ohne: 'ohne Abtrennung (nur in tiefen Nischen) -300 €', tuer: 'Glas mit Tür, geschlossen +250 €' } } } },
   wa: { label: 'Badewanne', vars: { r170: { name: 'Einbauwanne 170 × 75, gefliest', w: 1.7, d: .75, price: 690 }, r180: { name: 'Einbauwanne 180 × 80, gefliest', w: 1.8, d: .8, price: 790 }, frei: { name: 'Freistehende Wanne 170 × 80', w: 1.7, d: .95, price: 1690 } },
     arms: { wand: { name: 'Wannenarmatur Aufputz', price: 199 }, stand: { name: 'Standarmatur bodenstehend', price: 590 } } },
   ac: { label: 'Accessoire (an der Wand, stört keine Bodenfläche)', vars: { papier: { name: 'Toilettenpapierhalter', w: .16, d: .1, y: .75, price: 39 }, ersatz: { name: 'Ersatzrollenhalter', w: .1, d: .1, y: .45, price: 29 }, buerste: { name: 'WC-Bürstengarnitur', w: .1, d: .1, y: .3, price: 49 }, haken: { name: 'Handtuchhaken', w: .06, d: .05, y: 1.7, price: 19 }, stange: { name: 'Handtuchstange 60 cm', w: .6, d: .08, y: 1.1, price: 49 }, ring: { name: 'Handtuchring', w: .2, d: .07, y: 1.1, price: 35 }, seife: { name: 'Seifenspender', w: .08, d: .1, y: 1.05, price: 39 }, ablage: { name: 'Glasablage 50 cm', w: .5, d: .12, y: 1.15, price: 45 }, duschkorb: { name: 'Duschablage', w: .3, d: .12, y: 1.2, price: 59 }, griff: { name: 'Haltegriff 60 cm', w: .6, d: .08, y: .85, price: 69 }, sitz: { name: 'Duschklappsitz', w: .45, d: .4, y: .48, price: 189 } }, size: { y: [.2, 2] } },
@@ -71,6 +72,30 @@ function mounts(plan) {
   });
   return out;
 }
+// Duschen in ihre Nische einpassen (gleiche Rechnung wie im Planer, public/geo.js)
+function fitShowers(plan) {
+  const ms = mounts(plan), W = walls(plan.pts);
+  plan.items.filter(it => it.type === 'du').forEach(it => {
+    if (!CATALOG.du.vars[it.v]) it.v = 'flex'; it.flip = false; if (!it.mass) it.mass = 'auto';
+    const obs = []; let k = 0;
+    W.forEach((w, i) => { const n = [-w.d[1], w.d[0]]; obs.push({ poly: GEO.quad(w.A, w.d, n, -.2, w.len + .2, -.2, 0), wall: true, name: 'Wand ' + (i + 1) }); });
+    plan.items.forEach(o => {
+      if (o === it) return;
+      if (o.type === 'fw') { k++; const dx = o.b[0] - o.a[0], dz = o.b[1] - o.a[1], l = Math.hypot(dx, dz) || .001, d = [dx / l, dz / l]; obs.push({ poly: GEO.quad(o.a, d, [-d[1], d[0]], 0, l, -.06, .06), wall: true, inner: true, name: 'Trennwand ' + k }); return; }
+      if (o.type === 'fe' || !CATALOG[o.type] && o.type !== 'tu') return;
+      const m = mountOf(o, ms);
+      if (o.type === 'tw') { k++; obs.push({ poly: GEO.quad(m.A, m.d, m.n, o.t - .06, o.t + .06, 0, Math.max(dimsOf(o).d, .05)), wall: true, inner: true, name: 'Trennwand ' + k }); return; }
+      if (o.type === 'tu') { const w0 = o.w ?? .86; obs.push({ poly: GEO.quad(m.A, m.d, m.n, o.t - w0 / 2, o.t + w0 / 2, 0, w0), wall: false, name: 'Tür' }); return; }
+      if (!FLOOR_TYPES.includes(o.type) || (o.type === 'mo' && o.v === 'regal')) return;
+      const D = dimsOf(o), off = o.off || 0; obs.push({ poly: GEO.quad(m.A, m.d, m.n, o.t - D.w / 2, o.t + D.w / 2, off, off + D.d), wall: o.type === 'vw', inner: o.type === 'vw', name: o.type });
+    });
+    const m = { ...mountOf(it, ms) }; m.inner = m.fw != null || m.tw != null; m.label = m.name;
+    const opt = { room: plan.pts };
+    let r = GEO.fitShower(m, it.t, obs, opt);
+    if (r) { it.t = r.t; it.w = r.w; it.d = r.d; } else { const D = dimsOf(it); r = GEO.classify(m, it.t, D.w, D.d, obs, opt); }
+    it.fit = { sides: r.sides, entry: r.entry, arm: r.arm, drain: r.drain, auto: r.t != null };
+  });
+}
 const mountOf = (it, ms) => (it.host && ms.find(m => m.key === it.host)) || ms.find(m => m.key === it.wall) || ms[0];
 
 // ---------- Prüfung der KI-Ergebnisse (echte Flächen im Raum) ----------
@@ -112,6 +137,21 @@ function conflicts(plan) {
     if (blocked) out.push(`Vor ${nameOf(s.it)} (${s.at}) ist zu wenig Platz: ${nameOf(blocked.it)} steht im Weg (mind. 55 cm frei lassen).`);
     else if (!front.every(c => insidePoly(plan.pts, c[0], c[1]))) out.push(`Vor ${nameOf(s.it)} (${s.at}) ist zu wenig Platz bis zur Wand (mind. 55 cm frei lassen).`);
   });
+  // Dusche groß genug, Durchgänge an freien Wandenden breit genug
+  plan.items.filter(it => it.type === 'du').forEach(it => { const D = dimsOf(it); if (D.w < .85 || D.d < .85) out.push(`Die Dusche an ${mountOf(it, ms).name} ist nur ${Math.round(D.w * 100)} × ${Math.round(D.d * 100)} cm – die Nische ist zu klein (mindestens 90 × 90 cm).`); });
+  const segDist = (p, a, b) => { const vx = b[0] - a[0], vz = b[1] - a[1], l = vx * vx + vz * vz || 1e-9, t = Math.max(0, Math.min(1, ((p[0] - a[0]) * vx + (p[1] - a[1]) * vz) / l)); return Math.hypot(p[0] - a[0] - t * vx, p[1] - a[1] - t * vz); };
+  const polyDist = (p, poly) => insidePoly(poly, p[0], p[1]) ? 0 : Math.min(...poly.map((a, i) => segDist(p, a, poly[(i + 1) % poly.length])));
+  const roomSegs = walls(plan.pts).map(w => [w.A, w.B]);
+  const ends = [];
+  plan.items.filter(it => it.type === 'fw').forEach(f => ends.push({ p: f.a, own: f, seg: [f.a, f.b] }, { p: f.b, own: f, seg: [f.a, f.b] }));
+  plan.items.filter(it => it.type === 'tw').forEach(tw => { const m = ms.find(x => x.key === 't' + tw.id + 'm'); if (m) { const e2 = [m.A[0] + m.d[0] * m.len, m.A[1] + m.d[1] * m.len]; ends.push({ p: e2, own: tw, seg: [m.A, e2] }); } });
+  ends.forEach(({ p, own, seg }) => {
+    const toWall = Math.min(...roomSegs.map(sg => segDist(p, sg[0], sg[1])));
+    if (toWall < .08) return; // Ende steht an einer Wand
+    let gap = toWall, what = 'der Wand';
+    shapes.forEach(s2 => { if (s2.it === own || s2.it.type === 'tu' || Math.min(...s2.r.map(c => segDist(c, seg[0], seg[1])), polyDist(seg[0], s2.r), polyDist(seg[1], s2.r)) < .12 || (s2.it.host && own.id != null && s2.it.host.slice(1, -1) === String(own.id))) return; const dd = polyDist(p, s2.r); if (dd < gap) { gap = dd; what = nameOf(s2.it); } });
+    if (gap < .68) out.push(`Durchgang am Ende der ${own.type === 'fw' ? 'freistehenden Wand' : 'Trennwand'} ist nur ${Math.round(gap * 100)} cm breit bis ${what} (mindestens 70 cm).`);
+  });
   return [...new Set(out)];
 }
 
@@ -145,7 +185,7 @@ function normalize(base, e, layoutOnly) {
     if (!inBox(a) || !inBox(b) || Math.hypot(b[0] - a[0], b[1] - a[1]) < .3) return;
     plan.items.push({ id: id++, type: 'fw', v: f.hoehe === 'halb' ? 'halb' : 'hoch', a: a.map(r2), b: b.map(r2), ki: true });
   });
-  const objs = (Array.isArray(e.objekte) ? e.objekte : []).slice(0, 24).filter(o => CATALOG[o.typ] && CATALOG[o.typ].vars[o.modell]);
+  const objs = (Array.isArray(e.objekte) ? e.objekte : []).slice(0, 24).map(o => o && o.typ === 'du' ? { ...o, modell: 'flex' } : o).filter(o => o && CATALOG[o.typ] && CATALOG[o.typ].vars[o.modell]);
   const wallIdx = o => { const s0 = String(o.an || '').toUpperCase().match(/^W(\d+)$/); const v = s0 ? Number(s0[1]) : Math.round(Number(o.wand) || 1); return clamp(v, 1, n) - 1; };
   const make = o => {
     const cat = CATALOG[o.typ], it = { id: id++, type: o.typ, v: o.modell, wall: wallIdx(o), t: 0 };
@@ -177,6 +217,7 @@ function normalize(base, e, layoutOnly) {
     it.t = r2(clamp(Number.isFinite(a0) ? a0 : L / 2, Math.min(w / 2, L / 2), Math.max(L - w / 2, L / 2)));
     plan.items.push(it);
   });
+  fitShowers(plan);
   plan.nid = id;
   return plan;
 }
@@ -195,7 +236,8 @@ Platzierungsregeln (sehr wichtig):
 - Türen und Fenster sind fest und dürfen nicht verplant werden. Den Schwenkbereich der Tür (Türbreite tief) und die Wand unter einem Fenster mit niedriger Brüstung nicht zustellen. Die Tür schwenkt in den Raum.
 - Der Spiegel (sp) hängt über dem Waschtisch: gleiche Wand, gleicher abstand, breite etwa wie der Waschtisch.
 - Wand-WC und Dusch-WC brauchen eine Vorwand, die ist im WC bereits enthalten. Eine zusätzliche Vorwand (vw) nur als Ablage.
-- Duschen am besten in eine Ecke: abstand = breite/2 (Wandanfang) oder Wandlänge − breite/2 (Wandende). Die Eckdusche (eck) hat ihre Seitenwand auf der rechten Seite (Richtung Wandende); steht sie am Wandende, setze gespiegelt = true. Die Nischendusche nur zwischen zwei Wänden, wo die Nische genau passt.
+- DUSCHE (typ du, modell flex): Es gibt keine festen Duschgrößen. Setze die Dusche in eine Nische oder Ecke – abstand ungefähr in die Mitte der Nische. Die App misst die Nische aus und macht Duschfläche bzw. Duschwanne genau so groß (bis zu den Wänden, Trennwänden und Objekten ringsum). An einer offenen Wand ohne Nische wird sie 120 × 90 cm und rückt in die nächste Ecke. Die Armatur setzt die App mittig an die Wand gegenüber dem Einstieg, die Rinne an die Wand im Raum (Trennwand), sonst an die Rückwand.
+- Plane die Nische für die Dusche deshalb bewusst: mindestens 90 × 90 cm, besser 120 × 100 cm; eine Walk-in-Nische ohne Glas ab ca. 1,20 m Länge.
 - Eine Nische (ni) gehört meist in die Duschwand, Unterkante ca. 1,00–1,20 m.
 - Der Handtuchheizkörper kommt auf eine freie Wandfläche, gern neben die Dusche.
 - Zu jedem WC gehören ein Toilettenpapierhalter (ac papier) und eine WC-Bürstengarnitur (ac buerste) auf derselben Wand direkt neben dem WC (ca. 30–45 cm neben der WC-Mitte). Plane außerdem passende Accessoires ein: Seifenspender oder Glasablage beim Waschtisch, Handtuchhaken oder -stange bei Dusche/Wanne, bei barrierefrei Haltegriffe und Duschklappsitz. Accessoires hängen an der Wand und dürfen sich mit Bodenobjekten überschneiden.
@@ -407,6 +449,19 @@ Regeln:
 - Zu jedem WC: Toilettenpapierhalter (ac papier) und WC-Bürste (ac buerste) an derselben Fläche daneben. Spiegel (sp) über dem Waschtisch an derselben Fläche, gleicher abstand. Handtuchheizkörper an eine freie Wandfläche. Duschen bodengleich mit Rinne.
 - Mindestens 1,20 m breit für einen Durchgang hinter einer Wand in eine Walk-in-Dusche ist großzügig, 0,70 m ist das Minimum.
 - Jede Aufteilung soll sich in der ANORDNUNG klar unterscheiden. Wenn der Raum für eine Lösung zu klein ist, lass sie weg.
+
+Dusche – so plant ein Profi:
+- Keine festen Duschgrößen: modell immer "flex". Die Duschfläche (gefliest) oder Duschwanne wird automatisch genau so groß wie die Nische bzw. Ecke, in die du sie setzt. Plane deshalb die NISCHE: bei einer T-Lösung bestimmt die Länge der Wand im Raum die Duschbreite, der Abstand zur Raumwand die Duschtiefe.
+- Armatur kommt automatisch mittig an die Wand gegenüber dem Einstieg (meist die Außenwand). Die Rinne liegt an der Wand im Raum, die an die Außenwand stößt (bei T-Lösung an der T-Wand), sonst an der Rückwand.
+- Walk-in-Nische ohne Glas (trennung "ohne") nur, wenn die Nische mindestens 1,20 m tief ist (vom Einstieg zur Armatur); sonst Klarglas.
+
+Durchdacht planen – prüfe jede Aufteilung vor dem Speichern:
+1. Blick von der Tür: Beim Öffnen sieht man am besten den Waschtisch oder ein schönes Element, nicht direkt aufs WC.
+2. Installation bündeln: WC, Dusche und Waschtisch möglichst an Wänden, die aneinandergrenzen oder gegenüberliegen (kurze Leitungen, eine Vorwand).
+3. Wege: Von der Tür zu jedem Objekt mindestens 70 cm frei; an freien Enden von Trennwänden mindestens 70 cm Durchgang.
+4. Tageslicht: Fenster nicht mit hohen Wänden zustellen; Wanne oder Waschtisch gern ans Fenster.
+5. Proportionen: Dusche mindestens 90 × 90 cm, besser 120 × 100; Waschtisch mittig auf seiner Wandfläche oder bündig mit Abstand zur Ecke von mindestens 20 cm.
+6. Alles was dazugehört: Spiegel über jedem Waschtisch, Papierhalter und Bürste beim WC, Handtuchheizkörper nahe Dusche/Wanne, Duschablage in der Dusche.
 - titel: 2–4 Wörter. beschreibung: 2 kurze Sätze für den Endkunden, warum diese Anordnung gut ist. trend: ein kurzer Satz, welchen aktuellen Trend sie aufgreift (aus der Trend-Recherche).`;
 const TOOL_L = {
   name: 'aufteilungen_speichern',
@@ -509,7 +564,7 @@ const EN = {
     'wc:wand': 'wall-hung rimless white toilet with flush plate on a tiled pre-wall', 'wc:stand': 'floor-standing white toilet with ceramic cistern', 'wc:dusch': 'wall-hung shower toilet (bidet toilet) on a tiled pre-wall',
     'wt:w60': '60 cm washbasin with wall-hung vanity cabinet', 'wt:w80': '80 cm washbasin with wall-hung vanity cabinet', 'wt:w120': '120 cm double washbasin with wall-hung vanity', 'wt:auf': 'round countertop vessel basin on a 100 cm wall-hung console',
     'sp:led': 'backlit LED mirror', 'sp:schrank': 'mirror cabinet with LED light', 'sp:rund': 'round mirror with soft backlight',
-    'du:walk': 'level-access walk-in shower with a frameless glass panel and linear floor drain', 'du:eck': 'corner shower with frameless glass door', 'du:nische': 'alcove shower with a frameless glass door',
+    'du:flex': 'level-access walk-in shower fitted exactly into its niche, with linear floor drain', 'du:walk': 'level-access walk-in shower with a frameless glass panel and linear floor drain', 'du:eck': 'corner shower with frameless glass door', 'du:nische': 'alcove shower with a frameless glass door',
     'wa:r170': 'built-in bathtub with tiled front', 'wa:r180': 'large built-in bathtub with tiled front', 'wa:frei': 'freestanding oval white bathtub',
     'hk:hk': 'heated towel rail', 'vw:v': 'tiled half-height pre-wall with a shelf', 'ni:n': 'tiled wall niche with LED strip', 'fe:f': 'window with natural daylight', 'tu:t': 'interior door' },
   arm: { 'wt:stand': 'basin mixer tap', 'wt:hoch': 'tall basin mixer tap', 'wt:wand': 'wall-mounted basin tap', 'du:regen': 'exposed rain shower set', 'du:up': 'concealed thermostatic shower with large ceiling rain head', 'du:hand': 'shower rail with hand shower', 'wa:wand': 'wall-mounted bath mixer', 'wa:stand': 'floor-standing freestanding bath mixer' },
@@ -521,8 +576,9 @@ function photoPrompt(plan, kind) {
     const o = EN.obj[it.type + ':' + it.v]; if (!o) return null;
     const a = it.arm && EN.arm[it.type + ':' + it.arm];
     let x = a ? `${o} (${fin} ${a})` : o;
-    if (it.type === 'du' && it.glas) x += ', ' + ({ klar: 'frameless clear glass panel', schwarz: 'clear glass with slim matte black frame', milch: 'frosted satin glass panel', mauerhalb: 'tiled half-height masonry wall with clear glass on top', mauer: 'tiled floor-to-ceiling masonry wall instead of glass' })[it.glas];
+    if (it.type === 'du' && it.glas) x += ', ' + ({ klar: 'frameless clear glass panel', schwarz: 'clear glass with slim matte black frame', milch: 'frosted satin glass panel', mauerhalb: 'tiled half-height masonry wall with clear glass on top', mauer: 'tiled floor-to-ceiling masonry wall instead of glass', ohne: 'open walk-in without any glass', tuer: 'frameless clear glass enclosure with a door' })[it.glas];
     if (it.type === 'du') x += ', ' + (it.boden === 'wanne' ? 'low flat shower tray' : 'floor-level tiled shower floor') + (it.boden === 'wanne' ? '' : ', ' + ({ rinne: 'stainless steel linear drain', rinnef: 'tile-insert linear drain in the floor tile colour', rinnes: 'matte black linear drain', wand: 'hidden wall drain (no visible floor drain)', punkt: 'square point drain' })[it.ablauf || 'rinne']);
+    if (it.type === 'du' && it.fit) { const sd = it.fit.sides, nm2 = k => sd[k] && sd[k].wall ? (sd[k].inner ? 'the partition wall' : 'the wall ' + (k === 'h' ? 'behind' : 'at the side')) : 'the open side'; x += `, shower fittings centred on ${nm2(it.fit.arm)} opposite the entrance` + (it.boden !== 'wanne' && (it.ablauf || 'rinne') !== 'punkt' ? `, linear drain along ${nm2(it.fit.drain)}` : ''); }
     if (it.type === 'wt' && it.sch) x += ', ' + ({ schub: 'vanity with drawers', tuer: 'vanity with doors', offen: 'open vanity shelf' })[it.sch];
     if (it.type === 'ac' || it.type === 'ar') x += ` in ${fin}`;
     return x;

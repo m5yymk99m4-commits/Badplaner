@@ -216,6 +216,7 @@ details.all summary{cursor:pointer;font-weight:600;color:var(--pet);min-height:4
 <div class="viewer" id="viewer"><div class="bar"><span id="vinfo">KI-Foto</span><button class="close" id="vclose">✕ Schließen</button></div><img id="vimg" alt="KI-Foto des geplanten Bades"><p class="foot">Zum Speichern lange auf das Foto drücken. KI-Fotos sind eine Visualisierung, Details können leicht abweichen.</p></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="/geo.js?v=18"></script>
 <script>
 {
 /* ================= Katalog (Beispielpreise) ================= */
@@ -259,11 +260,12 @@ const T={
  sp:{label:'Spiegel',cat:'wasch',vars:[{id:'led',name:'LED-Spiegel',w:.8,d:.03,price:249},{id:'schrank',name:'Spiegelschrank',w:.8,d:.16,price:549},{id:'up',name:'Spiegelschrank Unterputz',w:.8,d:.03,price:890},{id:'rund',name:'Rundspiegel Ø 60',w:.6,d:.03,price:179},{id:'oval',name:'Ovaler Spiegel',w:.55,d:.03,price:159},{id:'pur',name:'Spiegel ohne Licht',w:.8,d:.02,price:89}],size:['w']},
  mo:{label:'Möbel',cat:'wasch',vars:[{id:'hoch',name:'Hochschrank 40 cm',w:.4,d:.35,price:590},{id:'seite',name:'Seitenschrank 40 cm',w:.4,d:.35,price:390},{id:'regal',name:'Wandregal 60 cm',w:.6,d:.2,price:149},{id:'wm',name:'Platz für Waschmaschine',w:.62,d:.62,price:0}]},
  wc:{label:'WC',cat:'wc',vars:[{id:'wand',name:'Wand-WC spülrandlos',w:.37,d:.54,price:389},{id:'stand',name:'Stand-WC mit Spülkasten',w:.37,d:.68,price:249},{id:'dusch',name:'Dusch-WC',w:.4,d:.58,price:1490},{id:'bidet',name:'Wand-Bidet',w:.37,d:.54,price:349}]},
- du:{label:'Dusche',cat:'dusche',vars:[{id:'walk',name:'Walk-in 120 × 90',w:1.2,d:.9,price:1290},{id:'walk140',name:'Walk-in 140 × 90',w:1.4,d:.9,price:1490},{id:'eck',name:'Eckdusche 90 × 90 mit Tür',w:.9,d:.9,price:890},{id:'nische',name:'Nischendusche 100 × 90',w:1,d:.9,price:990}],
+ du:{label:'Dusche',cat:'dusche',vars:[{id:'flex',name:'Dusche – passt sich der Nische an',w:1.2,d:.9,price:990},{id:'walk',hidden:1,name:'Walk-in 120 × 90',w:1.2,d:.9,price:1290},{id:'walk140',hidden:1,name:'Walk-in 140 × 90',w:1.4,d:.9,price:1490},{id:'eck',hidden:1,name:'Eckdusche 90 × 90 mit Tür',w:.9,d:.9,price:890},{id:'nische',hidden:1,name:'Nischendusche 100 × 90',w:1,d:.9,price:990}],
    arms:[{id:'regen',name:'Regenbrause-Set Aufputz',price:449},{id:'up',name:'Unterputz-Thermostat + Kopfbrause',price:790},{id:'hand',name:'Brausestange',price:189}],
-   opts:{boden:{label:'Duschboden',def:'eben',list:[{id:'eben',name:'Bodengleich (gefliest)'},{id:'wanne',name:'Flache Duschwanne',price:-150}]},
+   opts:{boden:{label:'Duschboden',def:'eben',list:[{id:'eben',name:'Bodengleich gefliest'},{id:'wanne',name:'Flache Duschwanne nach Maß',price:90}]},
+     mass:{label:'Größe',def:'auto',list:[{id:'auto',name:'Automatisch – füllt Nische/Ecke genau aus'},{id:'eigen',name:'Eigene Maße'}]},
      ablauf:{label:'Ablauf',def:'rinne',list:[{id:'rinne',name:'Duschrinne Edelstahl'},{id:'rinnef',name:'Duschrinne befliesbar (in Fliesenfarbe)',price:80},{id:'rinnes',name:'Duschrinne schwarz',price:60},{id:'wand',name:'Wandablauf (unsichtbar in der Wand)',price:190},{id:'punkt',name:'Punktablauf',price:-40}]},
-     glas:{label:'Abtrennung',def:'klar',list:[{id:'klar',name:'Klarglas rahmenlos'},{id:'schwarz',name:'Glas mit schwarzem Rahmen',price:190},{id:'milch',name:'Milchglas',price:120},{id:'mauerhalb',name:'Gemauert halbhoch + Glas',price:350},{id:'mauer',name:'Gemauerte Wand',price:450}]}}},
+     glas:{label:'Abtrennung',def:'klar',list:[{id:'klar',name:'Klarglas rahmenlos'},{id:'schwarz',name:'Glas mit schwarzem Rahmen',price:190},{id:'milch',name:'Milchglas',price:120},{id:'mauerhalb',name:'Gemauert halbhoch + Glas',price:350},{id:'mauer',name:'Gemauerte Wand',price:450},{id:'ohne',name:'Ohne Abtrennung (offene Nische)',price:-300},{id:'tuer',name:'Glas mit Tür, geschlossen',price:250}]}}},
  wa:{label:'Badewanne',cat:'dusche',vars:[{id:'r170',name:'Einbauwanne 170 × 75, gefliest',w:1.7,d:.75,price:690},{id:'r180',name:'Einbauwanne 180 × 80, gefliest',w:1.8,d:.8,price:790},{id:'frei',name:'Freistehende Wanne 170 × 80',w:1.7,d:.95,price:1690}],
    arms:[{id:'wand',name:'Wannenarmatur Aufputz',price:199},{id:'stand',name:'Standarmatur bodenstehend',price:590}]},
  ar:{label:'Armatur',cat:'arm',vars:[{id:'wtwand',name:'Waschtisch-Wandarmatur',w:.2,d:.2,y:1.12,price:329},{id:'up',name:'Dusch-Thermostat Unterputz',w:.16,d:.06,y:1.1,price:390},{id:'kopf',name:'Kopfbrause mit Wandarm',w:.3,d:.45,y:2.1,price:290},{id:'regen',name:'Regenbrause-Set Aufputz',w:.35,d:.45,y:1.1,price:449},{id:'hand',name:'Handbrause mit Wandhalter',w:.1,d:.1,y:1.3,price:129},{id:'stange',name:'Brausestange mit Handbrause',w:.1,d:.1,y:1.0,price:189},{id:'wanne',name:'Wannenarmatur Wand',w:.2,d:.2,y:.75,price:199}],size:['y']},
@@ -311,7 +313,40 @@ function mounts(){const out=walls().map((w,i)=>({...w,key:i,label:'Wand '+(i+1)}
 function mountOf(it,ms){ms=ms||mounts();if(it.host){const m=ms.find(x=>x.key===it.host);if(m)return m}return ms.find(x=>x.key===it.wall)||ms[0]}
 const mkey=it=>it.host||('w'+it.wall);
 const posOf=(it,m)=>{m=m||mountOf(it);const o=it.off||0;return[m.A[0]+m.d[0]*it.t+m.n[0]*o,m.A[1]+m.d[1]*it.t+m.n[1]*o]};
-function fixItems(){const W=walls(),ms=mounts();S.items.forEach(it=>{if(isFree(it))return;if(it.host&&!ms.some(m=>m.key===it.host))delete it.host;if(!it.host)it.wall=clamp(it.wall|0,0,W.length-1);const w=dims(it).w,L=mountOf(it,ms).len;it.t=clamp(it.t,Math.min(w/2,L/2),Math.max(L-w/2,L/2))})}
+
+/* ================= Dusche: passt sich der Nische an (Größe, Einstieg, Armatur, Rinne) ================= */
+const SIDE_N={h:'Rückwand',v:'Vorderseite',l:'linke Seite',r:'rechte Seite'};
+function duObstacles(self){const out=[],W=walls(),ms=mounts();
+  W.forEach((w,i)=>out.push({poly:GEO.quad(w.A,w.d,w.n,-.2,w.len+.2,-.2,0),wall:true,name:'Wand '+(i+1)}));
+  let k=0;S.items.filter(isFree).forEach(f=>{k++;const dx=f.b[0]-f.a[0],dz=f.b[1]-f.a[1],l=Math.hypot(dx,dz)||.001,d=[dx/l,dz/l],n=[-d[1],d[0]];out.push({poly:GEO.quad(f.a,d,n,0,l,-.06,.06),wall:true,inner:true,name:'Trennwand '+k})});
+  S.items.forEach(it=>{if(it===self||isFree(it))return;const m=mountOf(it,ms),D=dims(it);
+    if(it.type==='tw'){k++;out.push({poly:GEO.quad(m.A,m.d,m.n,it.t-.06,it.t+.06,0,Math.max(D.d,.05)),wall:true,inner:true,name:'Trennwand '+k});return}
+    if(it.type==='tu'){out.push({poly:GEO.quad(m.A,m.d,m.n,it.t-D.w/2,it.t+D.w/2,0,D.w),wall:false,name:'Tür'});return}
+    if(!FLOOR_TYPES.includes(it.type)||(it.type==='mo'&&it.v==='regal'))return;const o=it.off||0;
+    out.push({poly:GEO.quad(m.A,m.d,m.n,it.t-D.w/2,it.t+D.w/2,o,o+D.d),wall:it.type==='vw',inner:it.type==='vw',name:it.type==='vw'?'Vorwand':nm(it)})});
+  return out}
+function fitShowers(){const ms=mounts();S.items.filter(it=>it.type==='du').forEach(it=>{
+  if(it.v!=='flex'){it.v='flex';if(it.mass==null)it.mass='auto'}it.flip=false;
+  const m={...mountOf(it,ms)};m.inner=m.fw!=null||m.tw!=null;m.label=(m.label||'').split(' · ')[0];
+  const obs=duObstacles(it),o={room:S.pts,arm:it.armS&&it.armS!=='auto'?it.armS:null,drain:it.drainS&&it.drainS!=='auto'?it.drainS:null};
+  let r=it.mass==='eigen'?null:GEO.fitShower(m,it.t,obs,o);
+  if(r){it.t=r.t;it.w=r.w;it.d=r.d}else{const D=dims(it);r=GEO.classify(m,it.t,D.w,D.d,obs,o)}
+  it.fit={sides:r.sides,entry:r.entry,arm:r.arm,drain:r.drain,auto:it.mass!=='eigen'&&r.t!=null}})}
+function duName(it){const D=dims(it);return `${it.boden==='wanne'?'Dusche mit Wanne':'Dusche bodengleich'} ${cm(D.w)} × ${cm(D.d)}`}
+function nm(it){return it.type==='du'?duName(it):dims(it).v.name}
+// Linien der Seiten im eigenen Koordinatensystem der Dusche (x entlang der Wand, z in den Raum)
+function duSide(k,w,d){const hw=w/2;return{h:{a:[-hw,0],b:[hw,0],len:w,pos:[0,0],rot:0},v:{a:[hw,d],b:[-hw,d],len:w,pos:[0,d],rot:Math.PI},l:{a:[-hw,d],b:[-hw,0],len:d,pos:[-hw,d/2],rot:Math.PI/2},r:{a:[hw,0],b:[hw,d],len:d,pos:[hw,d/2],rot:-Math.PI/2}}[k]}
+// Abtrennung: am Einstieg eine feste Scheibe ab der Wandseite, 70 cm bleiben offen; „Tür“ schließt alle offenen Seiten
+function duPanels(it,w,d){const f=it.fit||{sides:{h:{wall:true},v:{wall:false},l:{wall:false},r:{wall:false}},entry:'v',arm:'h'},gl=it.glas||'klar',out=[];if(gl==='ohne')return out;
+  const open=['v','l','r'].filter(k=>!f.sides[k].wall);
+  open.forEach(k=>{const sd=duSide(k,w,d);if(gl==='tuer'){out.push({a:sd.a,b:sd.b,door:k===f.entry});return}if(k!==f.entry)return;
+    const L=sd.len-.7;if(L<.3)return;
+    // an welchem Ende beginnt die Scheibe? an dem Ende, das an eine Wand stößt (bevorzugt Richtung Armatur)
+    const ends={v:['r','l'],l:['v','h'],r:['h','v']}[k],wallEnd=ends.map(e=>f.sides[e]&&f.sides[e].wall);
+    let fromA=wallEnd[0]&&!wallEnd[1]?true:wallEnd[1]&&!wallEnd[0]?false:ends[0]===f.arm||ends[1]!==f.arm;
+    const A=fromA?sd.a:sd.b,B=fromA?sd.b:sd.a,t=L/sd.len;out.push({a:A,b:[A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t]})});
+  return out}
+function fixItems(){const W=walls(),ms=mounts();S.items.forEach(it=>{if(isFree(it))return;if(it.host&&!ms.some(m=>m.key===it.host))delete it.host;if(!it.host)it.wall=clamp(it.wall|0,0,W.length-1);const w=dims(it).w,L=mountOf(it,ms).len;it.t=clamp(it.t,Math.min(w/2,L/2),Math.max(L-w/2,L/2))});fitShowers()}
 function isect(m1,u1,m2,u2){const den=u1[0]*u2[1]-u1[1]*u2[0];if(Math.abs(den)<1e-6)return null;const s=((m2[0]-m1[0])*u2[1]-(m2[1]-m1[1])*u2[0])/den;return[m1[0]+u1[0]*s,m1[1]+u1[1]*s]}
 function offsetPoly(p,t){const W=wallsOf(p),n=W.length;return W.map((w,i)=>{const q=W[(i-1+n)%n];const m2=[w.A[0]-w.n[0]*t,w.A[1]-w.n[1]*t];return isect([q.A[0]-q.n[0]*t,q.A[1]-q.n[1]*t],q.d,m2,w.d)||m2})}
 function segDist(p,a,b){const dx=b[0]-a[0],dz=b[1]-a[1],l=dx*dx+dz*dz;if(!l)return Math.hypot(p[0]-a[0],p[1]-a[1]);const t=clamp(((p[0]-a[0])*dx+(p[1]-a[1])*dz)/l,0,1);return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dz)}
@@ -395,7 +430,7 @@ const ell=(x,y,rx,ry)=>{const p=new THREE.Path();p.absellipse(x,y,rx,ry,0,Math.P
 const rrPath=(w,d,r)=>{const s=rrect(w,d,r);const p=new THREE.Path(s.getPoints(12).reverse());return p};
 
 /* ================= Aufbau ================= */
-function build(){
+function build(){fitShowers();
   room.traverse(o=>{if(o.geometry)o.geometry.dispose()});room.clear();lights.clear();trash.forEach(x=>x.dispose());trash=[];mirrors=[];
   if(helper){scene.remove(helper);helper=null}
   const H=S.H,W=walls(),wt=by(WALL,S.wall),ft=by(FLOOR,S.floor),at=by(WALL,S.accentTile),fin=by(FINISH,S.finish),fu=by(FURN,S.furn),tH=S.tileH==='voll'?H:1.2,eve=S.mood==='abend';
@@ -485,24 +520,28 @@ function build(){
       else if(v.id==='up'){add(g,new THREE.PlaneGeometry(ww+.3,.25),M.halo,0,1.15,.002).userData.fx=1;BX(g,ww+.01,.73,.004,M.dark,0,1.55,.001);[-1,1].forEach(s2=>{const m=BX(g,ww/2-.008,.72,.006,M.mir,s2*ww/4,1.55,.006);m.userData.mir=1})}
       else{add(g,new THREE.PlaneGeometry(ww+.35,.95),M.halo,0,1.55,.002).userData.fx=1;const m=RB(g,ww,.7,.02,.015,M.mir,0,1.55,.025,.003);m.userData.mir=1}
       if(eve){const pl=new THREE.PointLight(0xffe2b8,.5,2.2,2);pl.position.set(0,1.55,.25);g.add(pl)}}
-    if(it.type==='du'){const walkin=v.id.startsWith('walk'),tray=it.boden==='wanne',base=tray?.035:0,gl=it.glas||'klar',ab=it.ablauf||'rinne';
+    if(it.type==='du'){const tray=it.boden==='wanne',base=tray?.035:0,gl=it.glas||'klar',ab=it.ablauf||'rinne',f=it.fit||{sides:{h:{wall:true},v:{wall:false},l:{wall:false},r:{wall:false}},entry:'v',arm:'h',drain:'h'};
+      const sideG=k=>{const sd=duSide(k,ww,d),grp=new THREE.Group();grp.position.set(sd.pos[0],0,sd.pos[1]);grp.rotation.y=sd.rot;g.add(grp);return[grp,sd.len]};
       if(tray){RB(g,ww,.035,d,.01,M.cer,0,.0175,d/2,.004);CY(g,.045,.045,.004,me,0,base+.001,d/2,24)}
       else if(ab==='punkt')RB(g,.12,.004,.12,.004,me,0,.002,d/2,.001);
-      else if(ab==='wand')BX(g,Math.min(.8,ww-.3),.025,.012,me,0,.04,.006);
-      else{const L=ww-.16;if(ab==='rinnef'){RB(g,L,.004,.075,.003,me,0,.002,.1,.001);RB(g,L-.02,.005,.055,.002,tileMat(by(FLOOR,S.floor),L/1.2,.05),0,.0035,.1,.001)}else RB(g,L,.005,.07,.003,ab==='rinnes'?M.blk:me,0,.0025,.1,.001)}
-      const gm=(w2,x,z,rot)=>{const grp=new THREE.Group();grp.position.set(x,0,z);if(rot)grp.rotation.y=Math.PI/2;g.add(grp);
-        if(gl==='mauer'){RB(grp,w2,S.H-.02,.1,.003,tileBox(w2,S.H),0,(S.H-.02)/2,0,.003);return grp}
+      else{const[dg,L]=sideG(f.drain);
+        if(ab==='wand')BX(dg,Math.min(.8,L-.3),.025,.012,me,0,.04,.006);
+        else{const Lr=L-.16;if(ab==='rinnef'){RB(dg,Lr,.004,.075,.003,me,0,.002,.1,.001);RB(dg,Lr-.02,.005,.055,.002,tileMat(by(FLOOR,S.floor),Lr/1.2,.05),0,.0035,.1,.001)}else RB(dg,Lr,.005,.07,.003,ab==='rinnes'?M.blk:me,0,.0025,.1,.001)}}
+      // Abtrennung: Glas, gemauert oder Tür – nur an offenen Seiten
+      const gm=(A,B,door)=>{const w2=Math.hypot(B[0]-A[0],B[1]-A[1]);if(w2<.05)return;const grp=new THREE.Group();grp.position.set((A[0]+B[0])/2,0,(A[1]+B[1])/2);grp.rotation.y=-Math.atan2(B[1]-A[1],B[0]-A[0]);g.add(grp);
+        if(gl==='mauer'){RB(grp,w2,S.H-.02,.1,.003,tileBox(w2,S.H),0,(S.H-.02)/2,0,.003);return}
         let y0=base,hgt=1.98;if(gl==='mauerhalb'){RB(grp,w2,1.2,.1,.003,tileBox(w2,1.2),0,.6,0,.003);RB(grp,w2+.01,.02,.12,.004,M.cer,0,1.21,0,.003);y0=1.22;hgt=.8}
-        const p=BX(grp,w2,hgt,.008,gl==='milch'?M.milk:M.glass,0,y0+hgt/2,0);p.userData.noShadow=1;
-        if(gl==='schwarz'){[[w2,.025,0,y0+hgt-.0125],[w2,.025,0,y0+.0125],[.025,hgt,-w2/2+.0125,y0+hgt/2],[.025,hgt,w2/2-.0125,y0+hgt/2]].forEach(f=>BX(grp,f[0],f[1],.02,M.blk,f[2],f[3],0));if(w2>.9)BX(grp,.02,hgt,.02,M.blk,0,y0+hgt/2,0)}
-        return grp};
-      const glassy=gl!=='mauer',fx=gl==='schwarz'?M.blk:me;
-      if(walkin){gm(ww-.45,-.225,d);if(glassy&&gl!=='mauerhalb')BX(g,.012,.012,d,fx,-.225+(ww-.45)/2-.05,1.95,d/2)}
-      else{gm(ww,0,d);if(glassy){if(gl!=='mauerhalb')BX(g,ww,.02,.02,fx,0,base+1.99,d);TU(g,[[-.05,Math.max(base+.9,1.3),d+.005],[-.05,Math.max(base+.9,1.3),d+.05],[-.05,Math.max(base+1.2,1.6),d+.05],[-.05,Math.max(base+1.2,1.6),d+.005]],.008,fx)}if(v.id==='eck')gm(d,ww/2,d/2,1)}
-      if(arm==='regen'){CY(g,.013,.013,1.05,me,0,1.62,.05);RB(g,.34,.06,.07,.025,me,0,1.08,.05,.008);[-.13,.13].forEach(x=>CY(g,.026,.026,.035,me,x,1.08,.095).rotation.x=Math.PI/2);BX(g,.018,.018,.38,me,0,2.14,.24);CY(g,.14,.14,.012,me,0,2.13,.43,48)}
-      else if(arm==='up'){RB(g,.16,.16,.01,.004,me,0,1.1,.005,.002);CY(g,.03,.03,.05,me,0,1.1,.03).rotation.x=Math.PI/2;BX(g,.018,.018,.38,me,0,2.17,.2);RB(g,.3,.01,.3,.01,me,0,2.16,.39,.003)}
-      else{CY(g,.011,.011,.9,me,0,1.45,.045);TU(g,[[0,1.7,.045],[0,1.72,.07],[0,1.78,.1]],.012,me);CY(g,.035,.03,.02,me,0,1.785,.11);RB(g,.3,.06,.07,.025,me,0,1,.05,.008)}
-      if(S.deko)RB(g,.75,.012,.48,.04,M.fabric2,walkin?ww/2-.2:0,.006,d+.32,.005)}
+        const pn=BX(grp,w2,hgt,.008,gl==='milch'?M.milk:M.glass,0,y0+hgt/2,0);pn.userData.noShadow=1;const fx=gl==='schwarz'?M.blk:me;
+        if(gl==='schwarz'){[[w2,.025,0,y0+hgt-.0125],[w2,.025,0,y0+.0125],[.025,hgt,-w2/2+.0125,y0+hgt/2],[.025,hgt,w2/2-.0125,y0+hgt/2]].forEach(q=>BX(grp,q[0],q[1],.02,M.blk,q[2],q[3],0))}
+        else if(gl!=='mauerhalb')BX(grp,w2,.02,.02,fx,0,y0+hgt+.01,0);
+        if(door)TU(grp,[[w2/2-.12,1.05,.005],[w2/2-.12,1.05,.05],[w2/2-.12,1.35,.05],[w2/2-.12,1.35,.005]],.008,fx)};
+      duPanels(it,ww,d).forEach(q=>gm(q.a,q.b,q.door));
+      // Armatur mittig an der Wand gegenüber dem Einstieg
+      const[ag]=sideG(f.arm);
+      if(arm==='regen'){CY(ag,.013,.013,1.05,me,0,1.62,.05);RB(ag,.34,.06,.07,.025,me,0,1.08,.05,.008);[-.13,.13].forEach(x=>CY(ag,.026,.026,.035,me,x,1.08,.095).rotation.x=Math.PI/2);BX(ag,.018,.018,.38,me,0,2.14,.24);CY(ag,.14,.14,.012,me,0,2.13,.43,48)}
+      else if(arm==='up'){RB(ag,.16,.16,.01,.004,me,0,1.1,.005,.002);CY(ag,.03,.03,.05,me,0,1.1,.03).rotation.x=Math.PI/2;BX(ag,.018,.018,.38,me,0,2.17,.2);RB(ag,.3,.01,.3,.01,me,0,2.16,.39,.003)}
+      else{CY(ag,.011,.011,.9,me,0,1.45,.045);TU(ag,[[0,1.7,.045],[0,1.72,.07],[0,1.78,.1]],.012,me);CY(ag,.035,.03,.02,me,0,1.785,.11);RB(ag,.3,.06,.07,.025,me,0,1,.05,.008)}
+      if(S.deko){const[eg]=sideG(f.entry);RB(eg,.7,.012,.45,.04,M.fabric2,0,.006,-.3,.005)}}
     if(it.type==='wa'){if(v.id==='frei'){const c=d/2+.07,prof=[[0,0],[.4,0],[.46,.1],[.5,.56],[.5,.6],[.475,.6],[.465,.56],[.43,.13],[.36,.075],[0,.075]];LA(g,prof,M.cerD,0,0,c,ww,1,d-.15);
         if(arm==='stand'){CY(g,.022,.028,.95,me,ww/2+.12,.475,c);TU(g,[[ww/2+.12,.93,c],[ww/2+.12,.98,c],[ww/2+.05,1,c],[ww/2-.03,.94,c]],.014,me)}else{TU(g,[[0,.82,.01],[0,.82,.14],[0,.8,.2]],.014,me)}
         if(S.deko)RB(g,.7,.012,.45,.04,M.fabric2,0,.006,c+d/2+.2,.005)}
@@ -616,7 +655,7 @@ function calc(){
   const per=W.map((w,i)=>{let a=w.len*tH;S.items.forEach(it=>{if(it.wall!==i||it.host)return;const D=dims(it);if(it.type==='tu'||it.type==='fe')a-=D.w*Math.max(0,Math.min(D.y+D.h,tH)-D.y);if(it.type==='ni')a+=(D.w+D.h)*2*.12});return a});
   let wA=per.reduce((s,a,i)=>s+(i===S.accent?0:a),0),aA=S.accent!=null&&per[S.accent]!=null?per[S.accent]:0;
   S.items.forEach(it=>{const D=dims(it);if(it.type==='vw')wA+=D.w*1.3+.44;if(it.type==='wc'&&it.v!=='stand')wA+=.8;if(it.type==='wa'&&it.v!=='frei')wA+=(D.w+D.d)*.56;
-    if(it.type==='tw')wA+=D.d*(it.v==='hoch'?S.H:1.2)*2+(D.d+.12)*.12;if(it.type==='fw')wA+=(D.d+.12)*D.h*2+(D.d+.12)*.12+D.h*.24;if(it.type==='du'&&(it.glas==='mauer'||it.glas==='mauerhalb'))wA+=(D.w+(it.v==='eck'?D.d:0))*(it.glas==='mauer'?S.H:1.2)*2});
+    if(it.type==='tw')wA+=D.d*(it.v==='hoch'?S.H:1.2)*2+(D.d+.12)*.12;if(it.type==='fw')wA+=(D.d+.12)*D.h*2+(D.d+.12)*.12+D.h*.24;if(it.type==='du'&&(it.glas==='mauer'||it.glas==='mauerhalb'))wA+=duPanels(it,D.w,D.d).reduce((z,q)=>z+Math.hypot(q.b[0]-q.a[0],q.b[1]-q.a[1]),0)*(it.glas==='mauer'?S.H:1.2)*2});
   const r=a=>Math.ceil(a*1.1*10)/10;wA=r(wA);aA=r(aA);const fA=r(Math.abs(areaOf(S.pts))),n=x=>x.toLocaleString('de-DE',{maximumFractionDigits:1});
   const l=[['Wandfliesen '+wt.name,`${wt.fmt} · ${n(wA)} m² à ${eur(wt.price)}, inkl. 10 % Verschnitt`,wA*wt.price]];
   if(aA)l.push(['Akzentwand '+at.name,`${at.fmt} · ${n(aA)} m² à ${eur(at.price)}`,aA*at.price]);
@@ -625,10 +664,11 @@ function calc(){
     if(t.vars[0].perM){p=D.w*t.vars[0].perM;det=`${cm(D.w)} cm breit, gefliest`}
     if(it.type==='wt'||it.type==='mo'||it.type==='sp'&&it.v==='schrank')det='Front '+by(FURN,S.furn).name;
     if(it.type==='ni')det=`${cm(D.w)} × ${cm(D.h)} cm, gefliest`;
+    if(it.type==='du'){p=Math.round(690+420*D.w*D.d);const f=it.fit;det=`${it.boden==='wanne'?'Duschwanne nach Maß':'Abdichtung, Gefälle, Fliesen-Unterbau'}${f?` · Armatur an ${f.sides[f.arm].name||SIDE_N[f.arm]}`:''}`}
     if(it.type==='tw'||it.type==='fw'){p=D.d*t.vars.find(x=>x.id===it.v).perM;det=`${cm(D.d)} cm lang, gefliest`}
     if(it.type==='ac')det=fin.name;if(it.type==='ar'){det=fin.name+(fin.add?` (+${fin.add} €)`:'');p+=fin.add}
     Object.entries(t.opts||{}).forEach(([k,o])=>{const c=by(o.list,it[k]||o.def);det+=' · '+o.label+': '+c.name;p+=c.price||0});
-    if(p)l.push([D.v.name,det,p]);
+    if(p)l.push([nm(it),det,p]);
     if(t.arms){const a=by(t.arms,it.arm);l.push([a.name,fin.name+(fin.add?` (+${fin.add} €)`:''),a.price+fin.add])}});
   const spots=Math.min(6,Math.max(1,Math.round(Math.abs(areaOf(S.pts))/1.6)));l.push(['LED-Einbaustrahler',`${spots} Stück à 39 €`,spots*39]);
   if(S.fbh)l.push(['Fußbodenheizung elektrisch',`${n(fA)} m² à 65 €, mit Thermostat`,fA*65]);if(S.luefter)l.push(['Lüfter mit Feuchtesensor','leise, Unterputz',189]);
@@ -654,7 +694,13 @@ function planSVG(o){
       if(it.type==='wt'){const n=['w120','w140','auf2'].includes(it.v)?2:1;for(let k=0;k<n;k++)q+=`<ellipse cx="${n===2?(k?1:-1)*D.w*.25:0}" cy="${D.d/2+.03}" rx="${Math.min(.2,D.w*.3)}" ry="${Math.min(.14,D.d*.35)}" fill="none" ${ln}/>`}
       if(it.type==='mo'&&it.v==='wm')q+=`<circle cx="0" cy="${D.d/2}" r=".2" fill="none" ${ln}/>`;
       if(it.type==='wa'&&it.v!=='frei')q+=`<rect x="${-hw+.08}" y=".08" width="${D.w-.16}" height="${D.d-.16}" rx=".14" fill="none" ${ln}/>`;
-      if(it.type==='du'){const ms=it.glas==='mauer'||it.glas==='mauerhalb',sc=ms?'var(--wallc)':'#4f9aa6',sw=ms?'.1':'.035';q+=`<path d="M${-hw} 0L${hw} ${D.d}M${hw} 0L${-hw} ${D.d}" ${ln} stroke-dasharray=".05 .04"/>${it.boden!=='wanne'&&['rinne','rinnef','rinnes',undefined].includes(it.ablauf)?`<line x1="${-hw+.08}" y1=".1" x2="${hw-.08}" y2=".1" stroke="#8a8f93" stroke-width=".05"/>`:''}<line x1="${-hw}" y1="${D.d}" x2="${it.v.startsWith('walk')?hw-.45:hw}" y2="${D.d}" stroke="${sc}" stroke-width="${sw}"/>`+(it.v==='eck'?`<line x1="${hw}" y1="0" x2="${hw}" y2="${D.d}" stroke="${sc}" stroke-width="${sw}"/>`:'')}
+      if(it.type==='du'){const f=it.fit||{arm:'h',drain:'h'},ms=it.glas==='mauer'||it.glas==='mauerhalb',sc=ms?'var(--wallc)':'#4f9aa6',sw=ms?'.1':'.035',ab=it.ablauf||'rinne';
+        q+=`<path d="M${-hw} 0L${hw} ${D.d}M${hw} 0L${-hw} ${D.d}" ${ln} stroke-dasharray=".05 .04" opacity=".5"/>`;
+        if(it.boden!=='wanne'&&ab!=='punkt'){const sd=duSide(f.drain,D.w,D.d),ux=(sd.b[0]-sd.a[0])/sd.len,uz=(sd.b[1]-sd.a[1])/sd.len,nx=-uz,nz=ux,i0=.08,o=ab==='wand'?.03:.1;
+          q+=`<line x1="${sd.a[0]+ux*i0+nx*o}" y1="${sd.a[1]+uz*i0+nz*o}" x2="${sd.b[0]-ux*i0+nx*o}" y2="${sd.b[1]-uz*i0+nz*o}" stroke="#7c8287" stroke-width="${ab==='wand'?.03:.05}" stroke-linecap="round"/>`}
+        else q+=`<circle cx="0" cy="${D.d/2}" r=".05" fill="#7c8287"/>`;
+        {const sd=duSide(f.arm,D.w,D.d),mx=(sd.a[0]+sd.b[0])/2,mz=(sd.a[1]+sd.b[1])/2,ux=(sd.b[0]-sd.a[0])/sd.len,uz=(sd.b[1]-sd.a[1])/sd.len;q+=`<circle cx="${mx-uz*.06}" cy="${mz+ux*.06}" r=".055" fill="#c9a25e" stroke="#7c6a45" stroke-width=".012"/>`}
+        duPanels(it,D.w,D.d).forEach(p2=>{q+=`<line x1="${p2.a[0]}" y1="${p2.a[1]}" x2="${p2.b[0]}" y2="${p2.b[1]}" stroke="${sc}" stroke-width="${sw}" stroke-linecap="round"/>`})}
       if(it.type==='vw')q+=`<path d="${Array.from({length:Math.ceil(D.w/.1)},(_,k)=>`M${-hw+k*.1} ${D.d}L${Math.min(-hw+k*.1+.2,hw)} 0`).join('')}" ${ln} stroke-width=".008"/>`}
     s+=`<g data-i="${o.items?it.id:''}" style="${o.items?'cursor:grab':''}" transform="matrix(${w.d[0]*f},${w.d[1]*f},${w.n[0]},${w.n[1]},${px},${pz})">${q}</g>`});
   W.forEach((w,i)=>{const on=i===selWall;
@@ -721,7 +767,7 @@ const CICON={bau:svgI('<path d="M3 21V9l9-5 9 5v12"/><path d="M9 21v-7h6v7"/>'),
   acc:svgI('<circle cx="8" cy="8" r="3"/><path d="M8 11v9M14 6h6M14 12h6M14 18h6"/>')};
 let curCat=null;
 const EXTRA={wc:[['ac','papier'],['ac','ersatz'],['ac','buerste']],dusche:[['ac','duschkorb'],['ac','sitz'],['ni','n'],['tw','halb'],['tw','hoch'],['fw','halb'],['fw','hoch']]};
-function modelsOf(cat){const out=[];Object.entries(T).forEach(([type,t])=>{if(t.cat===cat)t.vars.forEach(v=>out.push({type,v}))});(EXTRA[cat]||[]).forEach(([type,id])=>out.push({type,v:by(T[type].vars,id)}));return out}
+function modelsOf(cat){const out=[];Object.entries(T).forEach(([type,t])=>{if(t.cat===cat)t.vars.forEach(v=>{if(!v.hidden)out.push({type,v})})});(EXTRA[cat]||[]).forEach(([type,id])=>out.push({type,v:by(T[type].vars,id)}));return out}
 function freeGaps(skip){const W=walls(),n=W.length;return W.map((w,i)=>{const bl=[];
   S.items.forEach(it=>{if(it.id===skip||it.host||isFree(it))return;const isF=(FLOOR_TYPES.includes(it.type)&&!(it.type==='mo'&&it.v==='regal'))||it.type==='tu';if(!isF)return;const D=dims(it),ww=D.w,dep=it.type==='tu'?D.w:D.d;
     if(it.wall===i)bl.push([it.t-ww/2-.05,it.t+ww/2+.05]);
@@ -767,19 +813,25 @@ function itemCard(){const it=S.items.find(x=>x.id===sel);if(!it)return'';const t
     <p class="small" style="margin-top:0">Im Grundriss die <b>goldenen Punkte</b> an den Enden ziehen. Kommt ein Ende in die Nähe einer Wand oder einer anderen Trennwand, rastet es dort ein (T-Lösung). Die ganze Wand verschiebst du, indem du sie in der Mitte ziehst.</p>
     ${pick('iv','Höhe',t.vars.map(x=>({id:x.id,name:x.id==='halb'?'Halbhoch 1,20 m':'Raumhoch'})),it.v)}
     ${rng('flen','Länge',.3,6,D.d)}<div class="acts"><button class="btn ghost" data-act="frot">90° drehen</button></div></div>`;
-  let h=`<div class="card"><h3>${D.v.name}<button class="btn warn" data-act="del">Entfernen</button></h3>`;
-  if(t.vars.length>1)h+=pick('iv','Modell',t.vars,it.v);
+  let h=`<div class="card"><h3>${nm(it)}<button class="btn warn" data-act="del">Entfernen</button></h3>`;
+  if(t.vars.filter(v=>!v.hidden).length>1)h+=pick('iv','Modell',t.vars.filter(v=>!v.hidden),it.v);
   Object.entries(t.opts||{}).forEach(([k,o])=>{h+=pick('io-'+k,o.label,o.list.map(x=>({...x,price:x.price>0?x.price:0})),it[k]||o.def)});
   if(t.arms)h+=pick('ia','Armatur · '+by(FINISH,S.finish).name,t.arms,it.arm);
   h+=pick('iw','An welcher Wand',mounts().filter(m=>(!t.open||(m.fw==null&&m.tw==null))&&!(it.type==='tw'&&m.tw!=null)&&m.tw!==it.id).map(m=>({id:m.key,name:m.label})),mkey(it).replace(/^w/,''));
   h+='<div style="height:8px"></div>';
   h+=rng('t','Seitlich',0,w.len.toFixed(2),it.t);
+  if(it.type==='du'&&it.fit){const f=it.fit,sn=k=>f.sides[k].wall?f.sides[k].name:(k===f.entry?'Einstieg':'offene Seite');
+    h+=`<p class="note" style="margin:6px 0 4px">${it.mass==='eigen'?'Eigene Maße':'Passt genau in die Nische'}: <b>${cm(D.w)} × ${cm(D.d)} cm</b>. Einstieg: ${SIDE_N[f.entry]}. Armatur mittig an <b>${sn(f.arm)}</b>${(it.ablauf||'rinne')!=='punkt'&&it.boden!=='wanne'?`, Rinne an <b>${sn(f.drain)}</b>`:''}.</p>`;
+    const ws=['h','l','r','v'].filter(k=>f.sides[k].wall);
+    h+=pick('io-armS','Armatur an',[{id:'auto',name:'Automatisch (gegenüber dem Einstieg)'},...ws.map(k=>({id:k,name:sn(k)}))],it.armS||'auto');
+    if(it.boden!=='wanne'&&(it.ablauf||'rinne')!=='punkt')h+=pick('io-drainS','Rinne an',[{id:'auto',name:'Automatisch'},...['h','l','r','v'].map(k=>({id:k,name:sn(k)+(f.sides[k].wall?'':' (am Boden)')}))],it.drainS||'auto');
+    if(it.mass==='eigen')h+=rng('w','Breite',.8,2.6,D.w)+rng('d','Tiefe',.8,2,D.d)}
   if(it.type==='wa')h+=rng('off','Abstand zur Wand',0,2.5,it.off||0)+'<p class="small" style="margin-top:0">Für eine Wanne frei im Raum: Abstand erhöhen oder die Wanne im Plan in den Raum ziehen.</p>';
   (t.size||[]).forEach(k=>{const r=RANGE[k][it.type];h+=rng(k,{w:'Breite',h:'Höhe',y:['ac','ar','li'].includes(it.type)?'Höhe':'Unterkante',d:'Länge'}[k],r[0],r[1],D[k])});
-  if(!t.open)h+=`<div class="acts"><button class="btn ghost" data-act="flip">Spiegeln</button></div>`;
+  if(!t.open&&it.type!=='du')h+=`<div class="acts"><button class="btn ghost" data-act="flip">Spiegeln</button></div>`;
   return h+'</div>'}
 function render(){
-  const c=calc();document.getElementById('total').textContent=eur(c.t);
+  fitShowers();const c=calc();document.getElementById('total').textContent=eur(c.t);
   document.querySelectorAll('#steps button').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab||(b.dataset.tab==='mass'&&tab==='draw')));
   const rsw=`<div class="seg" style="margin-bottom:16px"><button data-act="tomass" class="${tab==='mass'?'on':''}">Maße eingeben</button><button data-act="todraw" class="${tab==='draw'?'on':''}">Neu zeichnen</button></div>`;
   let h='';
@@ -798,10 +850,10 @@ function render(){
     h=`<h2>Einrichten</h2><p class="lead">Kategorie wählen und ein Teil antippen. Die App stellt es an eine passende Stelle, danach kannst du es im Plan ziehen.</p>
     ${S.items.length?'':'<p class="note" style="margin:0 0 12px">Das Bad ist noch leer. Fang am besten mit Tür und Fenster an, dann Waschplatz, WC und Dusche.</p>'}
     <div class="cats">${CATS.map(c=>`<button data-cat="${c.id}" class="${c.id===curCat?'on':''}">${CICON[c.id]||''}${c.name}</button>`).join('')}</div>
-    ${curCat?`<div class="models">${mods.map(m=>`<button data-addv="${m.type}:${m.v.id}"><b>${m.v.name}</b><small>${m.v.perM?eur(m.v.perM)+' pro m':m.v.price?eur(m.v.price):'ohne Aufpreis'}</small></button>`).join('')}</div>`:''}
+    ${curCat?`<div class="models">${mods.map(m=>`<button data-addv="${m.type}:${m.v.id}"><b>${m.v.name}</b><small>${m.v.id==='flex'?'nach Maß, ca. 1.100–1.600 €':m.v.perM?eur(m.v.perM)+' pro m':m.v.price?eur(m.v.price):'ohne Aufpreis'}</small></button>`).join('')}</div>`:''}
     <p class="msg" id="omsg"></p>${itemCard()}
     <h2>Grundriss</h2>${planSVG({items:1,walls:1,labels:1})}<p class="small">Teile im Plan ziehen, sie rasten an der nächsten Wand ein. Im 3D-Bild antippen zum Auswählen.</p>
-    <h2>Im Bad (${S.items.length})</h2>${S.items.length?`<div class="list">${S.items.map(it=>`<div class="lrow${it.id===sel?' on':''}"><button data-pick="${it.id}"><span>${dims(it).v.name}</span><span>${isFree(it)?'frei':mountOf(it).label.replace(' · ',' ')}</span></button><button class="x" data-delid="${it.id}" aria-label="${dims(it).v.name} entfernen">✕</button></div>`).join('')}</div>`:'<p class="small">Noch leer.</p>'}
+    <h2>Im Bad (${S.items.length})</h2>${S.items.length?`<div class="list">${S.items.map(it=>`<div class="lrow${it.id===sel?' on':''}"><button data-pick="${it.id}"><span>${nm(it)}</span><span>${isFree(it)?'frei':mountOf(it).label.replace(' · ',' ')}</span></button><button class="x" data-delid="${it.id}" aria-label="${nm(it)} entfernen">✕</button></div>`).join('')}</div>`:'<p class="small">Noch leer.</p>'}
     <h2>Deko</h2>${seg('deko',[{id:true,name:'Handtücher, Pflanzen'},{id:false,name:'Ohne'}],S.deko)}`}
   if(tab==='mat'){h=`<h2>Wand</h2>${tilePick('wall','Wandfliese',WALL,S.wall)}${pick('tileH','Fliesenhöhe',[{id:'voll',name:'Raumhoch'},{id:'halb',name:'Halbhoch 1,20 m, darüber Farbe'}],S.tileH)}
     ${pick('accent','Akzentwand',[{id:'',name:'Keine'},...walls().map((_,i)=>({id:i,name:'Wand '+(i+1)}))],S.accent??'')}${S.accent!=null?tilePick('accentTile','Fliese der Akzentwand',WALL,S.accentTile):''}
