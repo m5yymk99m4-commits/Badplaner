@@ -224,8 +224,8 @@ details.all summary{cursor:pointer;font-weight:600;color:var(--pet);min-height:4
 <div class="viewer" id="viewer"><div class="bar"><span id="vinfo">KI-Foto</span><button class="close" id="vclose">✕ Schließen</button></div><img id="vimg" alt="KI-Foto des geplanten Bades"><p class="foot">Zum Speichern lange auf das Foto drücken. KI-Fotos sind eine Visualisierung, Details können leicht abweichen.</p></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="/geo.js?v=24"></script>
-<script src="/layout.js?v=24"></script>
+<script src="/geo.js?v=25"></script>
+<script src="/layout.js?v=25"></script>
 <script>
 {
 /* ================= Katalog (Beispielpreise) ================= */
@@ -976,7 +976,7 @@ function kiView(){
 let layoutWorker=null;
 function layoutRun(base,wish,exclude){return new Promise((res,rej)=>{
   const local=()=>{try{const list=LAYOUT.generate(base,wish,{exclude});res({list:Object.assign(list,{why:list.why})})}catch(e){rej(e)}};
-  try{if(!layoutWorker){const o=location.origin,src=`importScripts('${o}/geo.js?v=24','${o}/layout.js?v=24');onmessage=e=>{try{const l=LAYOUT.generate(e.data.base,e.data.wish,{exclude:e.data.exclude});postMessage({list:l,why:l.why})}catch(x){postMessage({err:x.message})}}`;
+  try{if(!layoutWorker){const o=location.origin,src=`importScripts('${o}/geo.js?v=25','${o}/layout.js?v=25');onmessage=e=>{try{const l=LAYOUT.generate(e.data.base,e.data.wish,{exclude:e.data.exclude});postMessage({list:l,why:l.why})}catch(x){postMessage({err:x.message})}}`;
       layoutWorker=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'})))}
     const t=setTimeout(()=>{layoutWorker.terminate();layoutWorker=null;local()},20000);
     layoutWorker.onmessage=e=>{clearTimeout(t);if(e.data.err)rej(new Error(e.data.err));else{const l=e.data.list;l.why=e.data.why;res({list:l})}};

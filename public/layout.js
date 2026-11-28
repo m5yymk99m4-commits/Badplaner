@@ -102,6 +102,16 @@
     return { vis: true, facing: cos > .87 };
   }
 
+  function wallsOk(ctx) {
+    const W = walls(ctx.pts), wins = windowsOf(ctx), door = doorOf(ctx);
+    return ctx.walls.filter(w => w.inner && w.it.ki).every(w => {
+      if (door && overlap(shrink(w.poly, .01), door.swing)) return false;
+      const ends = w.it.type === 'fw' ? [w.it.a, w.it.b] : [];
+      return ends.every(p => W.every((m, i) => { const dist = segDist(p, m.A, m.B); if (dist > .1) return true;
+        const u = (p[0] - m.A[0]) * m.d[0] + (p[1] - m.A[1]) * m.d[1];
+        return !wins.some(f => f.wall === i && u > f.u0 - .1 && u < f.u1 + .1) && !(door && door.it.wall === i && Math.abs(u - door.it.t) < door.w / 2 + .1); }));
+    });
+  }
   // ---------- Objekte setzen ----------
   function addItem(ctx, it, extra) {
     it.id = ctx.nid++; ctx.items.push(it);
@@ -378,6 +388,8 @@
     // große Bäder: halbleere Vorschläge nur zeigen, wenn es nicht genug gefüllte gibt
     const full = out.filter(o => !o.hinweise.some(h => /ungenutzte Fläche/.test(h)));
     if (full.length >= 2) out = full.concat(out.filter(o => !full.includes(o)).slice(0, Math.max(0, 3 - full.length)));
+    const fam = o => /^T-/.test(o.konzept) ? 'T' : /^L-|Raumteiler/.test(o.konzept) ? 'L' : 'X', cnt = { T: 0, L: 0, X: 0 };
+    out = out.filter(o => { const f = fam(o); cnt[f]++; return f === 'X' || cnt[f] <= 2; });
     out = out.slice(0, 6);
     out.why = out.length ? '' : diagnose(base, wish);
     return out;
@@ -421,7 +433,7 @@
       if (wantShower && !own) [1.0, 1.2, 1.4].forEach(x => [1.2, 1.4, 1.6].forEach(L => {
         const u = sd ? w.len - x - .06 : x + .06; if (u < .9 || u > w.len - .5) return;
         const c = clone(start); const a = P(w, u, 0), b = P(w, u, L);
-        c.items.push({ id: c.nid++, type: 'fw', v: 'hoch', a: a.map(R2), b: b.map(R2), ki: true }); refresh(c);
+        c.items.push({ id: c.nid++, type: 'fw', v: 'hoch', a: a.map(R2), b: b.map(R2), ki: true }); refresh(c); if (!wallsOk(c)) return;
         if (!placeShower(c, w, sd ? w.len - x / 2 : x / 2, { w: x, d: L })) return;
         keepF('tl', c, wish);
       }));
@@ -430,7 +442,7 @@
         if (x > w.len - .8) return;
         const C = sd ? w.B : w.A, dir = sd ? [-w.d[0], -w.d[1]] : w.d;
         const a = [C[0] + w.n[0] * (D + .06), C[1] + w.n[1] * (D + .06)], b = [a[0] + dir[0] * x, a[1] + dir[1] * x];
-        const c = clone(start); c.items.push({ id: c.nid++, type: 'fw', v: 'hoch', a: a.map(R2), b: b.map(R2), ki: true }); refresh(c);
+        const c = clone(start); c.items.push({ id: c.nid++, type: 'fw', v: 'hoch', a: a.map(R2), b: b.map(R2), ki: true }); refresh(c); if (!wallsOk(c)) return;
         if (!placeShower(c, w, sd ? w.len - x / 2 : x / 2, { w: x, d: D })) return;
         keepF('tp', c, wish);
       }));
@@ -448,17 +460,17 @@
         keepF('wn', c, wish);
       }));
       // T-Lösung mit Querwand (⊥): links Dusche an der T-Wand, rechts WC in der Nische, vorne Waschtisch/Wanne an der Stirnseite
-      if (wantShower && !own && sd === 0 && w.len >= 3.0 && adj.len >= 3.0) {
-        const wishes = area >= 10 && !wish.wanne ? [[wish, 'tt'], [{ ...wish, wanne: true }, 'ttw']] : [[wish, 'tt']];
-        [1.2, 1.4].forEach(SD => [1.2, 1.4].forEach(Dn => [.85].forEach(g => [0, 1].forEach(mir => {
+      if (wantShower && !own && sd === 0 && w.len >= 2.7 && adj.len >= 2.8) {
+        const wishes = area >= 8 && !wish.wanne ? [[wish, 'tt'], [{ ...wish, wanne: true }, 'ttw']] : [[wish, 'tt']];
+        [1.0, 1.2, 1.4].forEach(SD => [1.2, 1.4, 1.6, 1.8].filter(Dn => adj.len - Dn - .12 >= 1.9).forEach(Dn => [.8].forEach(g => [0, 1].forEach(mir => {
           if (late()) return;
-          const snw = SD + g, wcw = w.len - snw - .12; if (wcw < 1.25 || adj.len - Dn - .12 < 2.0) return;
+          const snw = SD + g, wcw = w.len - snw - .12; if (wcw < 1.2 || adj.len - Dn - .12 < 1.9) return;
           const s0 = mir ? w.len - snw - .06 : snw + .06; // Stiel
           const c = clone(start), stem = { id: c.nid++, type: 'fw', v: 'hoch', a: P(w, s0, 0).map(R2), b: P(w, s0, Dn + .06).map(R2), ki: true };
           const gW = Math.min(.95, Math.max(.75, wcw - .55 - .6)); // Durchgang WC-Seite
           const u0 = mir ? gW : g, u1 = mir ? w.len - g : w.len - gW;
           const bar = { id: c.nid++, type: 'fw', v: 'hoch', a: P(w, u0, Dn + .06).map(R2), b: P(w, u1, Dn + .06).map(R2), ki: true };
-          c.items.push(stem, bar); refresh(c);
+          c.items.push(stem, bar); refresh(c); if (!wallsOk(c)) return;
           const ms = c.ms.find(m => m.key === 'f' + stem.id + (mir ? 'm' : 'p')), mw = c.ms.find(m => m.key === 'f' + stem.id + (mir ? 'p' : 'm'));
           if (!ms || !mw || !placeShower(c, ms, ms.len / 2 - .03, { w: Dn, d: SD })) return;
           // WC mittig in die andere Nische an die T-Wand
@@ -466,21 +478,22 @@
           if (!insideAll(c, clear) || hitsAny(clear, innerWalls(c)) || hitsAny(solid, c.solids)) return;
           const wc = addItem(c, { type: 'wc', v: wish.duschwc ? 'dusch' : 'wand', ...hostOf(mw), t: R2(tW) }, { solid, clear, name: 'WC' });
           wc._wet = mw.wet; wc._wetP = P(mw, tW, dd / 2); wc._seen = seen(c, P(mw, tW, dd + .05), true);
+          if (wc._seen.facing) return; // nie direkt von der Tür aufs WC schauen
           [['papier', .32], ['buerste', -.32]].forEach(([v, dx]) => { const t = tW + dx; if (t > .08 && t < mw.len - .08) addItem(c, { type: 'ac', v, ...hostOf(mw), t: R2(t), y: v === 'papier' ? .75 : .3 }); });
           wishes.forEach(([wi, key]) => keepF(key, c, wi));
         }))));
       }
       // L-Lösung: gemauerte L-Wand vor der Dusche, Einstieg seitlich an der Außenwand
-      if (wantShower && !own && w.len >= 2.4 && adj.len >= 2.4) {
-        const wishes = area >= 10 && !wish.wanne ? [[wish, 'll'], [{ ...wish, wanne: true }, 'llw']] : [[wish, 'll']];
-        (area >= 9 ? [1.4, 1.6, 1.8] : [1.2, 1.4]).forEach(SW => [1.0, 1.2].forEach(SD => {
+      if (wantShower && !own && w.len >= 2.2 && adj.len >= 2.2) {
+        const wishes = area >= 8 && !wish.wanne ? [[wish, 'll'], [{ ...wish, wanne: true }, 'llw']] : [[wish, 'll']];
+        (area >= 9 ? [1.4, 1.6, 1.8, 2.0] : [1.2, 1.4]).forEach(SW => (area >= 9 ? [1.2, 1.4] : [1.0, 1.2]).forEach(SD => {
           if (late() || SW > w.len - 1.0) return;
           const cu = sd ? w.len : 0, dir = sd ? -1 : 1, uA = cu + dir * (SW + .06);
           const c = clone(start);
           const A = { id: c.nid++, type: 'fw', v: 'hoch', a: P(w, uA, 0).map(R2), b: P(w, uA, SD + .12).map(R2), ki: true };
           const uB = cu + dir * .8; // 80 cm Einstieg an der Außenwand
           const B = { id: c.nid++, type: 'fw', v: 'halb', a: P(w, uA, SD + .06).map(R2), b: P(w, uB, SD + .06).map(R2), ki: true };
-          c.items.push(A, B); refresh(c);
+          c.items.push(A, B); refresh(c); if (!wallsOk(c)) return;
           if (!placeShower(c, w, cu + dir * SW / 2, { w: SW, d: SD, glass: 'ohne', entryU: [Math.min(cu, uB), Math.max(cu, uB)] })) return;
           wishes.forEach(([wi, key]) => keepF(key, c, wi));
         }));
@@ -500,7 +513,8 @@
     Object.keys(results).forEach(k => { results[k] = results[k].slice(0, k === 'eigen' ? 3 : 2).map(r => { if (!r.src) return r; const f = finish(clone(r.src), r.wi); if (!f) return null; f.sig = sigOf(f.ctx); return f; }).filter(Boolean).sort((a, b) => a.e.score - b.e.score); });
     // je Konzept die beste noch nicht gezeigte Variante; gleiche Anordnungen nur einmal
     const cnt = {}, sigs = new Set(), core = r => r.ctx.items.filter(i => ['wc', 'wt', 'wa', 'fw', 'tw'].includes(i.type)).map(i => i.type + (i.host || i.wall) + Math.round((i.t || 0) * 5) + (i.a ? i.a.join() + i.b.join() : '')).sort().join('|');
-    return Object.entries(results).flatMap(([k, L0]) => (k === 'eigen' ? L0.slice(0, 3) : L0.slice(0, 1)).map(r => ({ k, r }))).filter(x => x.r).sort((a, b) => a.r.e.score - b.r.e.score).filter(({ r }) => {
+    const FAM = { tt: 'T', ttw: 'T', tl: 'T', ll: 'L', llw: 'L', tp: 'L' }, rank = x => (FAM[x.k] ? 0 : 1) + (x.r.e.cons.some(c => /ungenutzte/.test(c)) ? 2 : 0);
+    return Object.entries(results).flatMap(([k, L0]) => (k === 'eigen' ? L0.slice(0, 3) : FAM[k] ? L0.slice(0, 2) : L0.slice(0, 1)).map(r => ({ k, r }))).filter(x => x.r).sort((a, b) => rank(a) - rank(b) || a.r.e.score - b.r.e.score).filter(({ r }) => {
       const c0 = core(r); if (sigs.has(c0)) return false; sigs.add(c0); return true; }).map(({ k, r }) => {
       const C = CONCEPTS[k], items = r.ctx.items.map(it => { const o = {}; Object.keys(it).forEach(x => { if (x[0] !== '_') o[x] = it[x]; }); return o; });
       const nth = (cnt[k] = (cnt[k] || 0) + 1);
