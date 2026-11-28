@@ -69,6 +69,7 @@
     const items = base.items.map(x => ({ ...x }));
     return { pts: base.pts, items, nid: Math.max(0, ...items.map(i => i.id || 0)) + 1, solids: [], clears: [], walls: [], ms: null, notes: [], score: 0 };
   }
+  let deadline = Infinity; const late = () => Date.now() > deadline;
   const clone = c => ({ ...c, items: c.items.slice(), solids: c.solids.slice(), clears: c.clears.slice(), walls: c.walls.slice(), notes: c.notes.slice() });
   function refresh(ctx) { // nach dem Setzen von Wänden: Montageflächen und Wand-Hindernisse neu berechnen
     ctx.ms = mounts(ctx.pts, ctx.items); const W = walls(ctx.pts);
@@ -81,8 +82,8 @@
     });
   }
   const insideAll = (ctx, poly) => shrink(poly, .012).every(c => G.pip(ctx.pts, c[0], c[1]));
-  const hitsAny = (poly, list, skip) => list.some(o => o !== skip && overlap(shrink(poly, .012), o.poly));
-  const innerWalls = ctx => ctx.walls.filter(w => w.inner);
+  const hitsAny = (poly, list, skip) => { if (!list.length) return false; const sp = shrink(poly, .012); return list.some(o => o !== skip && overlap(sp, o.poly)); };
+  const innerWalls = ctx => ctx._iw && ctx._iwSrc === ctx.walls ? ctx._iw : (ctx._iwSrc = ctx.walls, ctx._iw = ctx.walls.filter(w => w.inner));
   function doorOf(ctx) {
     const tu = ctx.items.find(i => i.type === 'tu'); if (!tu) return null;
     const W = walls(ctx.pts), m = W[tu.wall] || W[0], w = dimsOf(tu).w;
@@ -239,9 +240,9 @@
     }
     return false;
   }
-  function passages(ctx) { // Durchgänge an freien Enden von Wänden im Raum
+  function passages(ctx, onlyNew) { // Durchgänge an freien Enden von Wänden im Raum
     const W = walls(ctx.pts), out = [];
-    ctx.walls.filter(w => w.inner).forEach(w => {
+    ctx.walls.filter(w => w.inner && (!onlyNew || w.it.ki)).forEach(w => {
       const it = w.it; let ends, seg;
       if (it.type === 'fw') { ends = [it.a, it.b]; seg = [it.a, it.b]; }
       else { const m = W[it.wall], L = dimsOf(it).d; const a = P(m, it.t, 0), b = P(m, it.t, L); ends = [b]; seg = [a, b]; }
@@ -260,7 +261,7 @@
     const pros = [], cons = [...ctx.notes]; let s = ctx.score;
     const wc = ctx.items.find(i => i.type === 'wc'), wt = ctx.items.find(i => i.type === 'wt'), du = ctx.items.find(i => i.type === 'du'), wa = ctx.items.find(i => i.type === 'wa');
     if (wish.dusche && !du) return null; if (wish.wanne && !wa) return null; if (!wc || !wt) return null;
-    const gaps = passages(ctx); if (gaps.some(g => g < .7)) return null;
+    const gaps = passages(ctx, true); if (gaps.some(g => g < .7)) return null;
     const minGap = gaps.length ? Math.min(...gaps) : null;
     if (minGap != null) { if (minGap < .8) s += 1; pros.push(`Durchgang an der Trennwand ${cm(minGap)} cm breit`); }
     const wet = new Set(ctx.items.filter(i => i._wet && i._wet !== 'boden').map(i => i._wet)); wet.delete('inner');
@@ -303,7 +304,7 @@
     if (wish.dusche && !ctx.items.find(i => i.type === 'du')) {
       let best = null;
       ctx.ms.filter(m => !m.inner).forEach(m => [.45, m.len - .45].forEach(t => (wish.small ? [[.9, .9], [1.0, .9], [1.2, .9]] : [[1.2, .9], [1.4, 1]]).forEach(([w, d]) => {
-        const c = clone(ctx); if (!placeShower(c, m, t, { w, d, min: wish.small ? .8 : .9, small: wish.small })) return; const r = finishBasics(c, wish); if (r && (!best || r.e.score < best.e.score)) best = r; })));
+        if (late() && best) return; const c = clone(ctx); if (!placeShower(c, m, t, { w, d, min: wish.small ? .8 : .9, small: wish.small })) return; const r = finishBasics(c, wish); if (r && (!best || r.e.score < best.e.score)) best = r; })));
       return best;
     }
     return finishBasics(ctx, wish);
@@ -319,9 +320,36 @@
   // opt.exclude: Kennungen schon gezeigter Vorschläge – dann kommen die nächstbesten Varianten
   function generate(base, wishIn, opt = {}) {
     const wish = parseWish(wishIn || {}), ex = new Set(opt.exclude || []);
-    let out = run(base, wish, ex);
-    if (out.length < 2 && !wish.barrierefrei) { const more = run(base, { ...wish, small: true }, ex); const seen2 = new Set(out.map(o => o.sig)); more.forEach(o => { if (!seen2.has(o.sig)) out.push(o); }); }
-    return out.slice(0, 6);
+    deadline = Date.now() + (opt.budget || 6000);
+    const userWalls = (base.items || []).filter(i => i.type === 'fw' && !i.ki).length;
+    const tries = [
+      [wish, base, ''],
+      [{ ...wish, small: true }, base, 'kompakt geplant (kleinere Abstände)'],
+    ];
+    if (userWalls) tries.push([{ ...wish, small: true }, { ...base, items: base.items.filter(i => i.type !== 'fw') }, 'ohne deine selbst gezeichneten freien Wände']);
+    tries.push([{ ...wish, small: true, wanne: false, wm: false, stauraum: false, doppel: false, barrierefrei: false }, { ...base, items: (base.items || []).filter(i => i.type !== 'fw') }, 'ohne Zusatzwünsche (Wanne, Waschmaschine …)']);
+    let out = [], how = '';
+    for (const [w, b, label] of tries) {
+      deadline = Math.max(deadline, Date.now() + 2500);
+      const r = run(b, w, ex); const seen2 = new Set(out.map(o => o.sig));
+      r.forEach(o => { if (!seen2.has(o.sig)) { if (label) o.hinweise = [`Hinweis: ${label}`, ...o.hinweise].slice(0, 3); out.push(o); } });
+      if (out.length >= 2) break; if (r.length && !how) how = label;
+    }
+    out = out.slice(0, 6);
+    out.why = out.length ? '' : diagnose(base, wish);
+    return out;
+  }
+  function diagnose(base, wish) {
+    const W = walls(base.pts), xs = base.pts.map(p => p[0]), zs = base.pts.map(p => p[1]);
+    const area = Math.abs(base.pts.reduce((s0, a, i) => { const b = base.pts[(i + 1) % base.pts.length]; return s0 + a[0] * b[1] - b[0] * a[1]; }, 0) / 2);
+    const ctx = makeCtx({ pts: base.pts, items: (base.items || []).filter(i => i.type === 'tu' || i.type === 'fe') }); refresh(ctx);
+    const w0 = { ...wish, small: true }, parts = [];
+    const c1 = clone(ctx); if (!placeWC(c1, w0)) parts.push('kein Platz für ein WC mit 60 cm davor');
+    const c2 = clone(ctx); if (!placeWT(c2, w0)) parts.push('kein Platz für einen Waschtisch mit 60 cm davor');
+    let du = false; W.forEach(w => [.45, w.len - .45].forEach(t => { if (!du) { const c = clone(ctx); du = !!placeShower(c, w, t, { w: .9, d: .9, min: .8, small: true }); } }));
+    if (!du) parts.push('keine Ecke für eine Dusche 90 × 90 cm mit Einstieg');
+    return `Raum ca. ${cm(Math.max(...xs) - Math.min(...xs))} × ${cm(Math.max(...zs) - Math.min(...zs))} cm (${area.toFixed(1).replace('.', ',')} m²), ${W.length} Wände. ` +
+      (parts.length ? 'Problem: ' + parts.join('; ') + '. Bitte Maße und Tür prüfen.' : 'WC, Waschtisch und Dusche passen einzeln, aber nicht zusammen – Tür oder Maße prüfen, oder Wünsche reduzieren.');
   }
   const sigOf = ctx => ctx.items.filter(i => ['wc', 'wt', 'wa', 'fw', 'tw', 'du'].includes(i.type)).map(i => i.type + (i.host || i.wall) + Math.round((i.t || 0) * 5) + (i.a ? i.a.join() + i.b.join() : '')).sort().join('|');
   function run(base, wish, ex) {
@@ -334,6 +362,7 @@
     // Ecke / klassisch
     keep('ecke', finish(start, wish));
     W.forEach((w, i) => [0, 1].forEach(sd => {
+      if (late()) return;
       const prev = W[(i - 1 + W.length) % W.length], next = W[(i + 1) % W.length], adj = sd ? next : prev;
       const cornerOk = Math.abs(w.d[0] * adj.d[0] + w.d[1] * adj.d[1]) < .1; // rechter Winkel
       if (!cornerOk) return;
