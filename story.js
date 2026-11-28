@@ -148,11 +148,22 @@ No other text anywhere, no names, no page numbers, no watermark, no signature, n
       (hint ? `\nExtra wish from the author: ${hint}` : '') + (retry?.length ? `\nA PREVIOUS ATTEMPT WAS REJECTED: ${retry.join(' ')} Fix exactly these points this time.` : '');
   }
 
+  // OpenAI verlangt bei neuen Bildern ein Modell: das neueste verfügbare gpt-image-Modell nehmen (ohne „mini“)
+  let imgModel = null, imgModelAt = 0;
+  async function defaultImageModel(cfg, base) {
+    if (imgModel && Date.now() - imgModelAt < 864e5) return imgModel;
+    let ids = [];
+    try { const r = await fetch(base + '/v1/models', { headers: { authorization: 'Bearer ' + cfg.openaiKey }, signal: AbortSignal.timeout(20000) }); const d = await r.json().catch(() => ({})); ids = (d.data || []).map(m => m.id); } catch {}
+    const ver = id => (id.match(/gpt-image-(\d+(?:\.\d+)?)/) || [])[1];
+    const cand = ids.filter(id => /^gpt-image-\d/.test(id) && !/mini|nano/.test(id) && !/\d{4}-\d{2}-\d{2}$/.test(id)).sort((a, b) => Number(ver(b)) - Number(ver(a)));
+    imgModel = cand[0] || 'gpt-image-1'; imgModelAt = Date.now();
+    console.log('Bild-Modell für Geschichten: ' + imgModel);
+    return imgModel;
+  }
   async function openaiImage(cfg, prompt, refs, quality) {
     if (!cfg.openaiKey) throw new AiError(400, 'Für die Bilder fehlt noch der Schlüssel für die Bild-KI (OpenAI). Ein Admin kann ihn unter „KI“ eintragen.');
     const base = (process.env.OPENAI_BASE_URL || 'https://api.openai.com').replace(/\/$/, '');
-    const body = { prompt, size: SIZE, quality, output_format: 'jpeg', n: 1 };
-    if (cfg.imageModel) body.model = cfg.imageModel;
+    const body = { prompt, size: SIZE, quality, output_format: 'jpeg', n: 1, model: cfg.imageModel || await defaultImageModel(cfg, base) };
     const edit = refs.length > 0;
     if (edit) { body.images = refs.map(buf => ({ image_url: 'data:image/jpeg;base64,' + buf.toString('base64') })); body.input_fidelity = 'high'; }
     const send = () => fetch(base + (edit ? '/v1/images/edits' : '/v1/images/generations'), { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + cfg.openaiKey }, body: JSON.stringify(body), signal: AbortSignal.timeout(300000) });
@@ -160,6 +171,10 @@ No other text anywhere, no names, no page numbers, no watermark, no signature, n
     try {
       r = await send(); data = await r.json().catch(() => ({}));
       if (!r.ok && /input_fidelity/i.test(data?.error?.message || '')) { delete body.input_fidelity; r = await send(); data = await r.json().catch(() => ({})); }
+      if (!r.ok && !cfg.imageModel && body.model !== 'gpt-image-1' && /model/i.test((data?.error?.code || '') + ' ' + (data?.error?.message || ''))) {
+        console.warn(`Bild-Modell ${body.model} nicht nutzbar, nehme gpt-image-1: ${data?.error?.message || r.status}`);
+        imgModel = body.model = 'gpt-image-1'; r = await send(); data = await r.json().catch(() => ({}));
+      }
     } catch { throw new AiError(504, 'Die Bild-KI hat nicht rechtzeitig geantwortet.'); }
     if (!r.ok) {
       const msg = data?.error?.message || '', code = data?.error?.code || '';
