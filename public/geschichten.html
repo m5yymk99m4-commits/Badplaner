@@ -90,6 +90,12 @@ details summary{cursor:pointer;color:var(--mute);font-size:13px;font-weight:600;
 .sw input:checked+span::after{transform:translateX(20px)}
 .times{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
 .tagauto{display:inline-block;font-size:11px;font-weight:700;color:var(--pet);background:var(--petbg);padding:1px 6px;border-radius:8px}
+/* Ablauf & Prüfung */
+.about{margin:0 0 12px;padding:14px 16px}
+.about b{font-size:14px}.about p{margin:2px 0 8px;font-size:15px}.about p:last-child{margin-bottom:0}
+.ok2{border-color:var(--pet)!important}
+.steps2{margin:12px 0 0;padding-left:22px;font-size:15px}.steps2 li{margin:4px 0}
+.check{display:flex;gap:10px;align-items:center;font-weight:500;margin-top:16px}.check input{width:20px;height:20px;accent-color:var(--pet)}
 dialog{border:0;padding:0;background:transparent;max-width:min(92vw,560px)}
 dialog::backdrop{background:rgba(0,0,0,.8)}
 dialog img{display:block;width:100%;border-radius:12px}
@@ -141,17 +147,19 @@ async function viewList(){
    <label>Zeichenstil</label><div class="chips" id="stil">${styles.map(s=>`<button type="button" data-v="${s.id}" class="${s.id===opt.stil?'on':''}">${esc(s.name)}</button>`).join('')}</div>
    <label>Bildqualität</label><div class="chips" id="qual"><button type="button" data-v="medium" class="${opt.qualitaet==='medium'?'on':''}">Normal · günstig</button><button type="button" data-v="high" class="${opt.qualitaet==='high'?'on':''}">Beste</button></div>
    <p class="hint">„Beste“ kostet bei OpenAI etwa das Drei- bis Vierfache pro Bild. Zum Ausprobieren reicht „Normal“, einzelne Bilder kannst du später neu zeichnen lassen.</p>
+   <label class="check"><input type="checkbox" id="autodraw" checked> Bilder gleich danach automatisch zeichnen</label>
    <div class="acts"><button class="btn" id="go">✦ Geschichte schreiben</button></div><p class="err" id="err"></p></div>
   <h2>Meine Geschichten</h2>
-  ${list.length?`<div class="list">${list.map(s=>`<a class="st" href="#/g/${s.id}"><div class="th" style="${s.thumb?`background-image:url(/api/story-images/${s.thumb}?v=${s.thumb_v})`:''}">${s.thumb?'':'Noch keine Bilder'}</div><b>${esc(s.title)}</b><small>${s.auto?'<span class="tagauto">Auto</span> ':''}${s.running?'<span class="spin sm"></span> entsteht · ':''}${s.done}/${s.total} Bilder</small></a>`).join('')}</div>`:'<p class="muted">Noch keine Geschichten.</p>'}`);
+  ${list.length?`<div class="list">${list.map(s=>`<a class="st" href="#/g/${s.id}"><div class="th" style="${s.thumb?`background-image:url(/api/story-images/${s.thumb}?v=${s.thumb_v})`:''}">${s.thumb?'':'Noch keine Bilder'}</div><b>${esc(s.title)}</b><small>${s.auto?'<span class="tagauto">Auto</span> ':''}${s.phase==='schreibt'?'<span class="spin sm"></span> wird geschrieben · ':s.running?'<span class="spin sm"></span> entsteht · ':''}${s.done}/${s.total} Bilder</small></a>`).join('')}</div>`:'<p class="muted">Noch keine Geschichten.</p>'}`);
   const anz=document.getElementById('anz'),anzo=document.getElementById('anzo');
   anz.oninput=()=>{opt.anzahl=+anz.value;anzo.textContent=anz.value};
   const pick=(id,key)=>document.getElementById(id).onclick=e=>{const b=e.target.closest('button');if(!b)return;opt[key]=b.dataset.v;[...b.parentNode.children].forEach(x=>x.classList.toggle('on',x===b))};
   pick('stil','stil');pick('qual','qualitaet');bindAuto(au);
   document.getElementById('go').onclick=async()=>{
     const nw=document.getElementById('nw'),idee=document.getElementById('idee').value.trim(),keep=nw.innerHTML;
-    nw.innerHTML='<div class="busy"><span class="spin"></span><span>Die KI schreibt deine Geschichte … das dauert etwa eine Minute.</span></div>';
-    try{const s=await api('/api/stories','POST',{idee,...opt});location.hash='#/g/'+s.id}
+    const zeichnen=document.getElementById('autodraw').checked;
+    nw.innerHTML='<div class="busy"><span class="spin"></span><span>Wird gestartet …</span></div>';
+    try{const s=await api('/api/stories','POST',{idee,...opt,zeichnen});location.hash='#/g/'+s.id}
     catch(x){nw.innerHTML=keep;viewList().then(()=>{document.getElementById('idee').value=idee;document.getElementById('err').textContent=x.message})}}}
 
 /* ---------- Automatik ---------- */
@@ -192,8 +200,9 @@ async function viewStory(id,keepScroll){
   cur=await api('/api/stories/'+id);dirty=false;render();
   if(keepScroll)scrollTo(0,y);
   poll()}
-const busyNow=()=>cur.running||cur.panels.some(p=>p.state==='warten'||p.state==='laeuft');
+const busyNow=()=>cur.running||cur.phase==='schreibt'||cur.panels.some(p=>p.state==='warten'||p.state==='laeuft');
 function render(){
+  if(cur.phase==='schreibt'||!cur.plan.szenen){renderWriting();return}
   const s=cur,P=s.plan,pan=n=>s.panels.find(p=>p.nr===n)||{nr:n,state:'offen'};
   const scenes=s.panels.filter(p=>p.nr>0),done=scenes.filter(p=>p.has_image&&(p.state==='fertig'||p.state==='warnung')).length,busy=busyNow();
   const missing=s.panels.filter(p=>!p.has_image||p.state==='fehler').length;
@@ -205,6 +214,9 @@ function render(){
    ${busy?'<button class="btn ghost sm" id="stop">Anhalten</button>':missing?`<button class="btn sm" id="render">${done?'Fehlende Bilder zeichnen':'✦ Bilder zeichnen'}</button>`:'<a class="btn sm" href="#post" id="topost">Veröffentlichen ↓</a>'}</div>
   ${busy?'<p class="hint" style="margin-top:-6px">Läuft auf dem Server weiter – du kannst die App schließen und später wiederkommen. Pro Bild etwa 1–2 Minuten, mit Prüfung.</p>':''}
   <p class="err" id="err"></p>
+  ${s.phase==='fehler'&&s.phase_note?`<div class="note bad">Überarbeitung fehlgeschlagen: ${esc(s.phase_note)}</div>`:''}
+  ${P.kern?`<div class="card about"><b>Worum es geht</b><p>${esc(P.kern)}</p>${P.wendung?`<b>Die Wendung</b><p>${esc(P.wendung)}</p>`:''}</div>`:''}
+  ${reviewBox(s)}
 
   <h2>Figuren</h2>
   <div class="cast">${(P.figuren||[]).map((f,i)=>`<div class="fig"><input data-f="${i}" data-k="name" value="${esc(f.name)}" ${lock}><textarea data-f="${i}" data-k="aussehen" ${lock}>${esc(f.aussehen)}</textarea>
@@ -272,7 +284,7 @@ function bind(){
   app.querySelectorAll('[data-zoom]').forEach(el=>el.onclick=()=>{const p=cur.panels.find(x=>x.nr===+el.dataset.zoom);if(!p||!p.has_image)return;$('dimg').src=img(p);$('dlg').showModal()});
   $('rewrite')&&($('rewrite').onclick=async()=>{const w=$('wish').value.trim(),card=$('rewrite').closest('.card'),keep=card.innerHTML;
     card.innerHTML='<div class="busy"><span class="spin"></span><span>Die KI überarbeitet die Geschichte …</span></div>';
-    try{await saveIfDirty();const m=w.match(/(\d{1,2})\s*Bilder/);cur=await api('/api/stories/'+cur.id+'/rewrite','POST',{wunsch:w,anzahl:m?+m[1]:undefined});render();scrollTo(0,0)}
+    try{await saveIfDirty();const m=w.match(/(\d{1,2})\s*Bilder/);cur=await api('/api/stories/'+cur.id+'/rewrite','POST',{wunsch:w,anzahl:m?+m[1]:undefined});render();scrollTo(0,0);poll()}
     catch(x){card.innerHTML=keep;bind();err.textContent=x.message;err.scrollIntoView({block:'center'})}});
   $('copy').onclick=async()=>{const t=$('cap').value.trim()+'\n\n'+$('tags').value.trim();try{await navigator.clipboard.writeText(t);$('okmsg').textContent='Text kopiert ✓'}catch(e){$('cap').select();$('okmsg').textContent='Bitte markierten Text kopieren.'}};
   $('share').onclick=shareAll;
@@ -291,12 +303,28 @@ async function shareAll(){
     if(navigator.canShare&&navigator.canShare({files})){try{await navigator.share({files});ok.textContent='Geteilt ✓'}catch(e){ok.textContent=e.name==='AbortError'?'':'Teilen hat nicht geklappt: '+e.message}}
     else{for(const f of files){const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();a.remove();await new Promise(r=>setTimeout(r,350))}ok.textContent=files.length+' Bilder heruntergeladen ✓'}
   }catch(x){ok.textContent=x.message}finally{btn.disabled=false}}
+function reviewBox(s){
+  const r=s.review;if(!r)return'';
+  if(r.laeuft)return`<div class="card about"><div class="busy"><span class="spin sm"></span><span>Gesamtprüfung: Claude schaut sich alle Bilder nacheinander an …</span></div></div>`;
+  const fix=r.korrigiert&&r.korrigiert.length?`<p class="small">Automatisch neu gezeichnet: Bild ${r.korrigiert.join(', ')}.</p>`:'';
+  if(r.passt)return`<div class="card about ok2"><b>✓ Gesamtprüfung bestanden</b><p class="small" style="margin:4px 0 0">Reihenfolge, Figuren und Texte passen zusammen.</p>${fix}</div>`;
+  return`<div class="card about"><b>Gesamtprüfung: bitte ansehen</b>${fix}${(r.probleme||[]).map(p=>`<p class="small" style="margin:6px 0 0"><a href="#sc${p.bild}" data-jump="${p.bild}">Bild ${p.bild}</a>: ${esc(p.problem)}</p>`).join('')}</div>`}
+function renderWriting(){
+  const s=cur,failed=s.phase==='fehler';
+  shell(`<a class="back" href="#/">‹ Alle Geschichten</a><h1>${esc(s.plan.titel||s.title)}</h1>
+  <div class="card">${failed?`<p class="err" style="margin-top:0">${esc(s.phase_note||'Das Schreiben hat nicht geklappt.')}</p><div class="acts"><button class="btn" id="retry">Noch einmal versuchen</button><button class="btn warn" id="del">Löschen</button></div>`:
+  `<div class="busy"><span class="spin"></span><span>Die KI schreibt die Geschichte</span></div>
+   <ol class="steps2"><li>Idee, Zeitleiste und Aufbau planen</li><li>Ein Lektor prüft Logik, Reihenfolge und Spannung</li><li>Überarbeiten, bis alles stimmt</li>${s.auto?'<li>Danach werden die Bilder automatisch gezeichnet</li>':''}</ol>
+   <p class="hint">Dauert etwa 2–5 Minuten und läuft auf dem Server weiter, auch wenn du die App schließt.</p>`}</div>`);
+  const r=document.getElementById('retry');if(r)r.onclick=async()=>{try{cur=await api('/api/stories/'+cur.id+'/retry','POST');render();poll()}catch(x){alert(x.message)}};
+  const d=document.getElementById('del');if(d)d.onclick=async()=>{await api('/api/stories/'+cur.id,'DELETE');location.hash='#/'}}
 /* Fortschritt abfragen */
 function stopPoll(){clearTimeout(timer);timer=null}
-function poll(){stopPoll();if(!cur||!busyNow())return;timer=setTimeout(async()=>{
+function poll(){stopPoll();if(!cur||!(busyNow()||cur.review?.laeuft))return;timer=setTimeout(async()=>{
   if(!cur||!location.hash.startsWith('#/g/'+cur.id))return;
-  try{const s=await api('/api/stories/'+cur.id);const changed=JSON.stringify(s.panels)!==JSON.stringify(cur.panels)||s.running!==cur.running;
-    if(changed&&!dirty&&!document.activeElement?.matches('input,textarea,select')){cur=s;const y=scrollY;render();scrollTo(0,y)}else if(changed){cur.panels=s.panels;cur.running=s.running}}catch(e){}
+  try{const s=await api('/api/stories/'+cur.id);const changed=JSON.stringify(s.panels)!==JSON.stringify(cur.panels)||s.running!==cur.running||s.phase!==cur.phase||JSON.stringify(s.review)!==JSON.stringify(cur.review);
+    if(cur.phase==='schreibt'&&s.phase!=='schreibt'){cur=s;dirty=false;clearSave();render();scrollTo(0,0);poll();return}
+    if(changed&&!dirty&&!document.activeElement?.matches('input,textarea,select')){cur=s;const y=scrollY;render();scrollTo(0,y)}else if(changed){cur.panels=s.panels;cur.running=s.running;cur.review=s.review}}catch(e){}
   poll()},4000)}
 app.addEventListener('input',e=>{if(cur&&e.target.matches('[data-f],[data-s],#title,#cap,#tags'))markDirty()});
 app.addEventListener('change',e=>{if(cur&&e.target.matches('select'))markDirty()});
