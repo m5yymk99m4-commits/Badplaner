@@ -165,6 +165,8 @@ details.all summary{cursor:pointer;font-weight:600;color:var(--pet);min-height:4
 .kiin2{padding:12px 14px 14px;display:flex;flex-direction:column;gap:6px;flex:1}
 .kiin2 b{font-size:17px;letter-spacing:-.01em}.kiin2 p{margin:0;font-size:14px}
 .kitrend{color:var(--mute)}.kitrend span{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--brass);margin-right:6px}
+.kibest{position:absolute;right:10px;top:10px;background:var(--brass);color:#fff;font-size:12px;font-weight:700;padding:4px 9px;border-radius:999px}
+.kipros,.kicons{margin:2px 0 0;padding:0;list-style:none;font-size:13.5px;display:grid;gap:3px}.kipros li::before{content:'✓ ';color:var(--pet);font-weight:700}.kicons li{color:light-dark(#8a5a12,#e3c58c)}.kicons li::before{content:'! ';font-weight:700}
 .kigood{color:var(--pet)!important;font-weight:600;font-size:13px!important}
 .kiwarn{font-size:13px;color:light-dark(#7a5414,#e3c58c)}.kiwarn summary{cursor:pointer;font-weight:600}.kiwarn ul{margin:6px 0 0;padding-left:18px}
 .kiv .acts{margin-top:auto;padding-top:6px}.kiv .btn{min-height:42px;padding:9px 14px;font-size:14px}
@@ -195,7 +197,7 @@ details.all summary{cursor:pointer;font-weight:600;color:var(--pet);min-height:4
 <div class="wrap">
   <div class="topnav"><a id="back" href="/">← Projekte</a><span id="saved"></span></div>
   <div class="sum"><h1 id="ptitle">Ihr neues Bad</h1><div class="tot"><strong id="total">–</strong><span>Material, ca.</span></div></div>
-  <div class="steps" id="steps"><button data-tab="mass"><b>1</b>Raum</button><button data-tab="ki"><b>2</b>KI-Ideen</button><button data-tab="obj"><b>3</b>Einrichten</button><button data-tab="mat"><b>4</b>Material</button><button data-tab="ang"><b>5</b>Angebot</button></div>
+  <div class="steps" id="steps"><button data-tab="mass"><b>1</b>Raum</button><button data-tab="ki"><b>2</b>Ideen</button><button data-tab="obj"><b>3</b>Einrichten</button><button data-tab="mat"><b>4</b>Material</button><button data-tab="ang"><b>5</b>Angebot</button></div>
   <div id="pane"></div>
 </div>
 <div class="viewbar"><div class="in"><button class="btn" id="open3d">In 3D ansehen</button><button class="btn ghost" id="openphoto">Echtes Foto</button></div></div>
@@ -216,7 +218,8 @@ details.all summary{cursor:pointer;font-weight:600;color:var(--pet);min-height:4
 <div class="viewer" id="viewer"><div class="bar"><span id="vinfo">KI-Foto</span><button class="close" id="vclose">✕ Schließen</button></div><img id="vimg" alt="KI-Foto des geplanten Bades"><p class="foot">Zum Speichern lange auf das Foto drücken. KI-Fotos sind eine Visualisierung, Details können leicht abweichen.</p></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="/geo.js?v=18"></script>
+<script src="/geo.js?v=19"></script>
+<script src="/layout.js?v=19"></script>
 <script>
 {
 /* ================= Katalog (Beispielpreise) ================= */
@@ -843,7 +846,7 @@ function render(){
     <h2>Wandlängen</h2><div class="mass">${walls().map((w,i)=>`<label class="${i===selWall?'on':''}">W${i+1}<input type="number" inputmode="numeric" step="1" min="30" value="${cm(w.len)}" data-len="${i}" id="len-${i}"><small>cm</small></label>`).join('')}</div>
     ${rng('H','Raumhöhe',2.2,3.2,S.H)}
     <h2>Feinjustieren</h2><p class="lead">Ecken und Wände direkt ziehen, Wände teilen für Vorsprünge.</p>${planSVG({handles:1,walls:1}).replace('id="plan"','id="plan2"').replace(/data-(c|w|drag)=/g,'data-x$1=')}
-    <div class="acts">${selWall!=null?`<button class="btn ghost" data-act="split">W${selWall+1} teilen</button>`:''}${selCorner!=null?`<button class="btn warn" data-act="delc">Ecke ${selCorner+1} löschen</button>`:''}<button class="btn" data-act="go2">Weiter: KI-Ideen</button></div>
+    <div class="acts">${selWall!=null?`<button class="btn ghost" data-act="split">W${selWall+1} teilen</button>`:''}${selCorner!=null?`<button class="btn warn" data-act="delc">Ecke ${selCorner+1} löschen</button>`:''}<button class="btn" data-act="go2">Weiter: Ideen</button></div>
     <p class="small">Trennwände (z. B. zwischen Dusche und WC) setzt du unter „Einrichten“ → „Wände, Heizung, Türen“.</p>`}
   if(tab==='ki')h=kiView();
   if(tab==='obj'){const mods=curCat?modelsOf(curCat):[];
@@ -909,35 +912,34 @@ document.getElementById('steps').addEventListener('click',e=>{const b=e.target.c
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const KICHIPS=['Walk-in-Dusche','Badewanne','Dusche und Wanne','WC nicht vom Eingang sichtbar','Doppelwaschtisch','Dusch-WC','Waschmaschine','Viel Stauraum','Barrierefrei','Möglichst günstig'];
 let kiChips=[],kiWish='',kiRes=null,kiBusy=false,kiErr='',kiUndo=null,kiApplied=null,kiT0=0,kiTick=0;
-try{const r=JSON.parse(localStorage.getItem('ki-res-'+VID)||'null');if(r&&Array.isArray(r.list))kiRes=r}catch(e){}
-const kiKonzeptIcon={'T-Lösung':'⊥','WC-Nische':'▯','Raumteiler':'⇹','Nasszone':'≋','Freistehende Wanne':'◯','Klassisch':'□','Eigene Idee':'✦'};
+try{const r=JSON.parse(localStorage.getItem('ki-res-'+(VID||'local'))||'null');if(r&&Array.isArray(r.list)&&r.list.every(x=>x.pros))kiRes=r}catch(e){}
+const kiKonzeptIcon={'Wanne + Dusche':'◫','T-Lösung':'⊥','WC-Nische':'▯','Raumteiler':'⇹','Nasszone':'≋','Freistehende Wanne':'◯','Klassisch':'□','Eigene Idee':'✦'};
 function thumbOf(plan){const keep=S,ks=sel,kw=selWall,kc=selCorner;S={...S,items:plan.items};sel=selWall=selCorner=null;let svg='';try{svg=planSVG({})}finally{S=keep;sel=ks;selWall=kw;selCorner=kc}
   return svg.replace(' id="plan"','').replace('class="plan mid"','class="plan thumb"').replace(/data-o='[^']*'/,'')}
 function kiView(){
-  if(!VID)return `<h2>KI-Ideen</h2><p class="lead">Die KI-Vorschläge gibt es, wenn die Planung zu einem Kundenprojekt gehört (über „Projekte“ öffnen).</p>`;
-  const sec=kiBusy?Math.round((Date.now()-kiT0)/1000):0;
-  let h=`<div class="kihead"><span class="kibadge">KI</span><div><h2>Ideen für die Aufteilung</h2><p class="lead">Die KI plant mehrere Anordnungen für genau diesen Grundriss – T-Lösung, WC-Nische, Raumteiler, Walk-in, freistehende Wanne – nach den aktuellen Badtrends aus dem Internet.</p></div></div>
+  let h=`<div class="kihead"><span class="kibadge">✦</span><div><h2>Planungs-Assistent</h2><p class="lead">Rechnet für genau diesen Grundriss hunderte Anordnungen durch – Ecke, T-Lösung, Raumteiler, Nasszone, WC-Nische, Wanne – prüft jede mit echten Maßen und zeigt die besten. Dauert nur einen Moment.</p></div></div>
     <div class="kicard"><p class="kilab">Was ist dem Kunden wichtig? <span>optional</span></p><div class="kichips">${KICHIPS.map(c=>`<button data-kichip="${c}" class="${kiChips.includes(c)?'on':''}">${c}</button>`).join('')}</div>
-    <input id="kiwish" class="kiin" placeholder="Weitere Wünsche, z. B. „Fenster soll frei bleiben“" value="${esc(kiWish)}">
-    <button class="btn big" data-kiact="run" ${kiBusy?'disabled':''}>${kiBusy?`KI plant … ${sec} s`:kiRes?'Neue Vorschläge erstellen':'Vorschläge erstellen'}</button>
-    <p class="small" style="margin:8px 0 0">${kiBusy?'Dauert meist 1–2 Minuten. Die Seite bitte offen lassen.':'Deine Materialauswahl bleibt erhalten. Tür, Fenster und gezeichnete Wände bleiben fest.'}</p>${kiErr?`<p class="kierr">${esc(kiErr)}</p>`:''}</div>`;
-  if(kiUndo)h+=`<div class="kiok"><span>✓ Vorschlag „${esc(kiApplied)}“ übernommen.</span><span><button class="btn ghost sm" data-kiact="undo">Rückgängig</button><button class="btn sm" data-act="go3">Weiter: Einrichten</button></span></div>`;
-  if(kiRes&&kiRes.list.length){h+=`<h2>${kiRes.list.length} Vorschläge</h2><div class="kigrid">${kiRes.list.map((v,i)=>`<article class="kiv">
-    <div class="kipic">${thumbOf(v.plan)}<span class="kitag">${kiKonzeptIcon[v.konzept]||'✦'} ${esc(v.konzept)}</span></div>
-    <div class="kiin2"><b>${esc(v.name)}</b><p>${esc(v.note)}</p>${v.trend?`<p class="kitrend"><span>Trend</span>${esc(v.trend)}</p>`:''}
-    ${v.hinweise&&v.hinweise.length?`<details class="kiwarn"><summary>${v.hinweise.length} Hinweis${v.hinweise.length>1?'e':''} zum Prüfen</summary><ul>${v.hinweise.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></details>`:'<p class="kigood">✓ passt ohne Überschneidungen</p>'}
+    <input id="kiwish" class="kiin" placeholder="Weitere Wünsche, z. B. „mit Badewanne“" value="${esc(kiWish)}">
+    <button class="btn big" data-kiact="run" ${kiBusy?'disabled':''}>${kiBusy?'Rechnet …':kiRes?'Neu berechnen':'Vorschläge berechnen'}</button>
+    <p class="small" style="margin:8px 0 0">Tür, Fenster und selbst gezeichnete Wände bleiben fest. Fliesen und Farben bleiben erhalten.</p>${kiErr?`<p class="kierr">${esc(kiErr)}</p>`:''}</div>`;
+  if(kiUndo)h+=`<div class="kiok"><span>✓ „${esc(kiApplied)}“ übernommen.</span><span><button class="btn ghost sm" data-kiact="undo">Rückgängig</button><button class="btn sm" data-act="go3">Weiter: Einrichten</button></span></div>`;
+  if(kiRes&&kiRes.list.length){h+=`<h2>${kiRes.list.length} Vorschläge – der beste zuerst</h2><div class="kigrid">${kiRes.list.map((v,i)=>`<article class="kiv">
+    <div class="kipic">${thumbOf(v.plan)}<span class="kitag">${kiKonzeptIcon[v.konzept]||'✦'} ${esc(v.konzept)}</span>${i===0?'<span class="kibest">Empfehlung</span>':''}</div>
+    <div class="kiin2"><b>${esc(v.name)}</b><p>${esc(v.note)}</p>
+    ${(v.pros||[]).length?`<ul class="kipros">${v.pros.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}
+    ${(v.hinweise||[]).length?`<ul class="kicons">${v.hinweise.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}
+    ${v.trend?`<p class="kitrend"><span>Trend</span>${esc(v.trend)}</p>`:''}
     <div class="acts"><button class="btn" data-kiact="apply" data-i="${i}">Übernehmen</button><button class="btn ghost" data-kiact="look" data-i="${i}">In 3D ansehen</button></div></div></article>`).join('')}</div>`}
-  else if(!kiBusy)h+=`<div class="kiempty"><div class="kiillu">${['⊥','▯','⇹','≋','◯'].map(x=>`<i>${x}</i>`).join('')}</div><p>Noch keine Vorschläge. Wünsche antippen und „Vorschläge erstellen“.</p><p class="small">Lieber selbst planen? <button class="linkbtn" data-act="go3">Direkt zum Einrichten</button></p></div>`;
+  else if(kiRes&&!kiRes.list.length)h+=`<div class="kiempty"><p>Für diesen Grundriss passt keine Anordnung mit allen Wünschen. Wünsche reduzieren (z. B. ohne Wanne) oder die Maße prüfen.</p></div>`;
+  else if(!kiBusy)h+=`<div class="kiempty"><div class="kiillu">${['⊥','▯','⇹','≋','◯'].map(x=>`<i>${x}</i>`).join('')}</div><p>Wünsche antippen und „Vorschläge berechnen“.</p><p class="small">Lieber selbst planen? <button class="linkbtn" data-act="go3">Direkt zum Einrichten</button></p></div>`;
   return h}
 function kiApply(i){const v=kiRes.list[i];if(!v)return;kiUndo={items:JSON.parse(JSON.stringify(S.items)),nid:S.nid};kiApplied=v.name;
-  S.items=JSON.parse(JSON.stringify(v.plan.items));S.nid=Math.max(v.plan.nid||1,...S.items.map(x=>x.id+1));sel=null;fixItems();save();build()}
+  S.items=JSON.parse(JSON.stringify(v.plan.items));S.items.forEach(it=>{const t=T[it.type];if(!t)return;Object.entries(t.opts||{}).forEach(([k,o])=>{if(it[k]==null)it[k]=o.def});if(t.arms&&!it.arm)it.arm=t.arms[0].id});S.items=S.items.filter(it=>T[it.type]);S.nid=Math.max(v.plan.nid||1,...S.items.map(x=>x.id+1));sel=null;fixItems();save();build()}
 async function kiAction(a,i){
-  if(a==='run'){if(kiBusy)return;const wi=document.getElementById('kiwish');kiWish=wi?wi.value:'';kiBusy=true;kiErr='';kiT0=Date.now();render();
-    kiTick=setInterval(()=>{const b=document.querySelector('[data-kiact=run]');if(b)b.textContent=`KI plant … ${Math.round((Date.now()-kiT0)/1000)} s`},1000);
-    try{const r=await fetch('/api/variants/'+VID+'/layouts',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({plan:{H:S.H,pts:S.pts,items:S.items.filter(x=>['tu','fe'].includes(x.type)||(x.type==='fw'&&!x.ki)),wall:S.wall,floor:S.floor,grout:S.grout,tileH:S.tileH,finish:S.finish,furn:S.furn,accent:S.accent,accentTile:S.accentTile},chips:kiChips,wunsch:kiWish,count:5})});
-      const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Fehler '+r.status);
-      kiRes={list:d.vorschlaege||[],at:Date.now()};try{localStorage.setItem('ki-res-'+VID,JSON.stringify(kiRes))}catch(e){}}
-    catch(e){kiErr=e.message}finally{clearInterval(kiTick);kiBusy=false;if(tab==='ki')render()}return}
+  if(a==='run'){if(kiBusy)return;const wi=document.getElementById('kiwish');kiWish=wi?wi.value:'';kiBusy=true;kiErr='';render();
+    setTimeout(()=>{try{fitShowers();const list=LAYOUT.generate({pts:S.pts,items:S.items.filter(x=>['tu','fe'].includes(x.type)||(x.type==='fw'&&!x.ki))},{chips:kiChips,text:kiWish});
+      kiRes={list,at:Date.now()};try{localStorage.setItem('ki-res-'+(VID||'local'),JSON.stringify(kiRes))}catch(e){}}catch(e){kiErr='Fehler bei der Berechnung: '+e.message}
+      kiBusy=false;if(tab==='ki'){render();const g=document.querySelector('.kigrid');if(g)g.scrollIntoView({behavior:'smooth',block:'start'})}},30);return}
   if(a==='apply'){kiApply(i);render();window.scrollTo({top:0,behavior:'smooth'});return}
   if(a==='look'){kiApply(i);render();open3d();if(mode!=='orbit')setMode('orbit');return}
   if(a==='undo'&&kiUndo){S.items=kiUndo.items;S.nid=kiUndo.nid;kiUndo=null;kiApplied=null;sel=null;fixItems();save();build();render()}}

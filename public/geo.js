@@ -49,7 +49,7 @@
       d = ds.length ? Math.max(...ds) : defD;
     }
     let w = right - left, tt = (left + right) / 2;
-    if (w > 1.8 && !(front && front.wall)) { // offene lange Wand: Standardbreite an die nähere Grenze
+    if (w > (opt.maxW || 1.8) && !(front && front.wall) && !opt.full) { // offene lange Wand: Standardbreite an die nähere Grenze
       w = Math.min(defW, w); const toL0 = t - left, toR0 = right - t;
       if (lo && (!ro || toL0 <= toR0)) { tt = left + w / 2; ro = null; } else if (ro) { tt = right - w / 2; lo = null; } else { tt = Math.min(Math.max(t, left + w / 2), right - w / 2); lo = ro = null; }
     }
