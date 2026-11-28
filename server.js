@@ -441,7 +441,8 @@ async function makePhoto(req, u, p, kind) {
   if (photoBusy >= 2) throw new HttpError(429, 'Es werden gerade schon Fotos erstellt. Bitte kurz warten.');
   photoBusy++;
   let buf;
-  try { buf = await ai.photo(aiConfig(), b.image, JSON.parse(v.plan_json || '{}'), kind); }
+  const view = { x: Number(b.x), z: Number(b.z), yaw: Number(b.yaw) };
+  try { buf = await ai.photo(aiConfig(), b.image, JSON.parse(v.plan_json || '{}'), kind, view); }
   catch (e) { throw new HttpError(e.status || 500, e.message || 'Fehler bei der Bild-KI'); }
   finally { photoBusy--; }
   const file = `v${v.id}-${kind}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.jpg`;

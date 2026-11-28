@@ -569,7 +569,88 @@ const EN = {
     'hk:hk': 'heated towel rail', 'vw:v': 'tiled half-height pre-wall with a shelf', 'ni:n': 'tiled wall niche with LED strip', 'fe:f': 'window with natural daylight', 'tu:t': 'interior door' },
   arm: { 'wt:stand': 'basin mixer tap', 'wt:hoch': 'tall basin mixer tap', 'wt:wand': 'wall-mounted basin tap', 'du:regen': 'exposed rain shower set', 'du:up': 'concealed thermostatic shower with large ceiling rain head', 'du:hand': 'shower rail with hand shower', 'wa:wand': 'wall-mounted bath mixer', 'wa:stand': 'floor-standing freestanding bath mixer' },
 };
-function photoPrompt(plan, kind) {
+// ---------- Wo steht was im Bild? (aus dem 3D-Modell berechnet, für Prompt und Prüfung) ----------
+// view: { x, z, yaw } in Raumkoordinaten (wie plan.pts). Panorama: Bildmitte = Blick Richtung -z, links → rechts im Uhrzeigersinn.
+const SHAPE = {
+  wc: v => ({ wand: 'wall-hung toilet', stand: 'floor-standing toilet', dusch: 'wall-hung shower toilet', bidet: 'wall-hung bidet' })[v] || 'toilet',
+  wt: v => v === 'h45' ? 'small hand basin' : /120|140|auf2/.test(v) ? 'double washbasin with vanity' : 'washbasin with vanity',
+  du: () => 'walk-in shower area', wa: v => v === 'frei' ? 'freestanding bathtub' : 'built-in bathtub', hk: () => 'towel radiator',
+  mo: v => ({ hoch: 'tall cabinet', seite: 'side cabinet', regal: 'wall shelves', wm: 'washing machine' })[v] || 'cabinet',
+  vw: () => 'tiled half-height pre-wall (1.10 m)', sp: () => 'mirror', ni: () => 'recessed wall niche',
+  tw: v => v === 'hoch' ? 'tiled floor-to-ceiling partition wall' : 'tiled half-height partition wall (1.20 m)',
+  fw: v => v === 'hoch' ? 'tiled floor-to-ceiling free-standing wall' : 'tiled half-height free-standing wall (1.20 m)',
+  tu: () => 'door', fe: () => 'window',
+};
+const LOW = ['wc', 'wt', 'wa', 'du', 'mo', 'vw', 'hk']; // reicht nicht über 1,20 m – hinter halbhohen Wänden versteckt
+function segHit(p, q, a, b) {
+  const cr = (x1, y1, x2, y2) => x1 * y2 - y1 * x2, r = [q[0] - p[0], q[1] - p[1]], v = [b[0] - a[0], b[1] - a[1]], den = cr(r[0], r[1], v[0], v[1]);
+  if (Math.abs(den) < 1e-9) return false;
+  const t = cr(a[0] - p[0], a[1] - p[1], v[0], v[1]) / den, u = cr(a[0] - p[0], a[1] - p[1], r[0], r[1]) / den;
+  return t > .02 && t < .98 && u >= 0 && u <= 1;
+}
+function sceneLayout(plan, view, kind) {
+  if (!plan || !Array.isArray(plan.pts) || plan.pts.length < 3 || !Array.isArray(plan.items) || !view || !Number.isFinite(view.x) || !Number.isFinite(view.z)) return null;
+  let p; try { p = JSON.parse(JSON.stringify(plan)); fitShowers(p); } catch { return null; }
+  const ms = mounts(p), eye = [view.x, view.z], yaw = Number.isFinite(view.yaw) ? view.yaw : 0;
+  const HF = 2 * Math.atan(Math.tan(27.5 * Math.PI / 180) * 1.5); // Kamera der Einzelfotos: 55° vertikal, 3:2
+  // Sichtsperren: Raumwände; raumhohe Wände im Raum ganz, halbhohe nur für niedrige Teile
+  const block = [], half = [];
+  walls(p.pts).forEach(w => block.push([w.A, w.B, 'a room wall']));
+  p.items.forEach(it => {
+    let a, b;
+    if (it.type === 'fw' && it.a && it.b) { a = it.a; b = it.b; }
+    else if (it.type === 'tw') { const m = mountOf(it, ms), L = Math.max(dimsOf(it).d, .05); a = [m.A[0] + m.d[0] * it.t, m.A[1] + m.d[1] * it.t]; b = [a[0] + m.n[0] * L, a[1] + m.n[1] * L]; }
+    else return;
+    (it.v === 'hoch' ? block : half).push([a, b, SHAPE[it.type](it.v), it]);
+  });
+  const ang = (q) => { const dx = q[0] - eye[0], dz = q[1] - eye[1]; return kind === 'pano' ? Math.atan2(dx, -dz) : Math.atan2(dx * Math.cos(yaw) - dz * Math.sin(yaw), -dx * Math.sin(yaw) - dz * Math.cos(yaw)); };
+  const toU = a => kind === 'pano' ? a / (2 * Math.PI) + .5 : .5 + Math.tan(a) / (2 * Math.tan(HF / 2));
+  const pct = u => Math.round(u * 100);
+  const out = [];
+  p.items.forEach(it => {
+    if (!SHAPE[it.type]) return;
+    let poly, host = '';
+    if (it.type === 'fw') { if (!it.a || !it.b) return; poly = [it.a, it.b]; }
+    else if (it.type === 'tw') { const m = mountOf(it, ms), L = Math.max(dimsOf(it).d, .05); poly = rectOf(m, it.t - .06, it.t + .06, 0, L); }
+    else {
+      const m = mountOf(it, ms), w = it.w ?? (it.type === 'tu' ? .86 : it.type === 'fe' ? .9 : CATALOG[it.type] ? dimsOf(it).w : .5);
+      const d = CATALOG[it.type] ? Math.max(dimsOf(it).d, .02) : .02, off = it.off || 0;
+      poly = rectOf(m, it.t - w / 2, it.t + w / 2, off, off + d);
+      host = m.tw != null ? 'mounted on the side of the partition wall' : m.fw != null ? 'mounted on the free-standing wall' : it.type === 'wa' && it.v === 'frei' ? 'standing free in the room' : 'against the outer room wall';
+      if (it.type === 'wc' || it.type === 'wt') { const vw = p.items.find(o => o.type === 'vw' && (o.host || o.wall) === (it.host || it.wall) && Math.abs(o.t - it.t) < dimsOf(o).w / 2); if (vw) host = 'mounted on the tiled pre-wall'; }
+    }
+    const c = poly.reduce((s, q) => [s[0] + q[0] / poly.length, s[1] + q[1] / poly.length], [0, 0]);
+    const dist = Math.hypot(c[0] - eye[0], c[1] - eye[1]);
+    // Sichtbarkeit: Mittelpunkt und Ecken prüfen
+    const pts = [c, ...poly], seen = q => !block.some(s => s[3] !== it && segHit(eye, q, s[0], s[1]));
+    const vis = pts.filter(seen).length;
+    let note = '';
+    if (!vis) { const by = block.find(s => s[3] !== it && segHit(eye, c, s[0], s[1])); note = `NOT visible from here – hidden behind ${by ? by[2] : 'a wall'}`; }
+    else if (LOW.includes(it.type) && half.some(s => s[3] !== it && segHit(eye, c, s[0], s[1]))) note = 'mostly hidden behind the half-height wall in front of it, only its top may show';
+    else if (vis < pts.length) note = 'partly hidden behind a wall';
+    // horizontale Lage im Bild
+    const a0 = ang(c), rel = poly.map(q => { let d = ang(q) - a0; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; });
+    let lo = a0 + Math.min(0, ...rel), hi = a0 + Math.max(0, ...rel), where;
+    if (kind === 'pano') {
+      const u0 = toU(lo), u1 = toU(hi);
+      where = u0 < 0 ? `wrapping around the left/right image edge (${pct(u0 + 1)}–100 % and 0–${pct(u1)} % of image width)` : u1 > 1 ? `wrapping around the left/right image edge (${pct(u0)}–100 % and 0–${pct(u1 - 1)} % of image width)` : `${pct(u0)}–${pct(u1)} % of image width`;
+    } else {
+      if (Math.abs(a0) > HF / 2 + .35 || Math.cos(a0) < .05) return; // nicht im Bild
+      lo = Math.max(lo, -HF / 2); hi = Math.min(hi, HF / 2);
+      if (hi <= lo) return;
+      where = `${pct(toU(lo))}–${pct(toU(hi))} % of image width (from the left)`;
+    }
+    out.push({ type: it.type, name: SHAPE[it.type](it.v), where, dist: Math.round(dist * 10) / 10, host, note, visible: vis > 0 });
+  });
+  if (!out.length) return null;
+  out.sort((a, b) => a.dist - b.dist);
+  const count = {}; out.forEach(o => { if (o.visible && ['wc', 'wt', 'wa', 'du', 'tu', 'fe'].includes(o.type)) count[o.name] = (count[o.name] || 0) + 1; });
+  const lines = out.map(o => `- ${o.name}: ${o.where}, ${o.dist} m away${o.host ? ', ' + o.host : ''}${o.note ? ' – ' + o.note : ''}`);
+  const counts = Object.entries(count).map(([n, k]) => `${k} × ${n}`).join(', ');
+  return { list: out, text: `EXACT LAYOUT FROM THE 3D MODEL (measured from this camera position; percentages are horizontal positions in the input image, 0 % = left edge):\n${lines.join('\n')}\nVisible in total: ${counts || 'no main fixtures'}. There is exactly this number of each – never add a second toilet, basin, bathtub, shower, door or window, and never move a fixture out from behind the wall that hides it.` };
+}
+
+function photoPrompt(plan, kind, layout, retry) {
   const p = plan || {}, items = p.items || [];
   const fin = EN.finish[p.finish] || 'polished chrome';
   const objs = [...new Set(items.map(it => {
@@ -590,23 +671,24 @@ function photoPrompt(plan, kind) {
 Fixtures in this bathroom (show only those that are visible in the image): ${objs.join('; ') || 'standard bathroom fixtures'}.
 ${light}
 ${p.deko === false ? 'No decoration.' : 'Tasteful minimal styling: folded towels, a small plant, a soap dispenser.'}`;
+  const extra = (layout ? layout.text : '') + (retry && retry.length ? `\nA PREVIOUS ATTEMPT WAS REJECTED because it did not match the 3D model: ${retry.join(' ')} Fix exactly these points this time.` : '');
   if (kind === 'pano') return `This image is a 360° equirectangular panorama (2:1) rendered from a simple 3D model of a bathroom, seen from one standing point at eye level.
 Turn it into a photorealistic 360° equirectangular panorama photograph of the same newly renovated bathroom in a German home.
 VERY IMPORTANT: keep the exact equirectangular projection and spherical distortion of the input. Keep the horizon exactly in the vertical middle. Keep every wall, edge, door, window and fixture at exactly the same pixel position and size. Ceiling stays at the top, floor at the bottom. The left and right edges of the image must connect seamlessly. Do not crop, do not zoom, do not reframe, do not straighten the curved lines, do not turn it into a normal flat photo.
-Replace the plain 3D look with real materials, real textures, physically correct light, soft shadows and natural reflections.
+Replace the plain 3D look with real materials, real textures, physically correct light, soft shadows and natural reflections. Every grey or white block in the render IS the fixture listed for that position – texture it, do not reinterpret or relocate it. Walls, partition walls, pre-walls and niches keep their exact outline.
+${extra}
 ${look}
 Style: high-end real-estate 360° virtual tour photography, sharp, natural colours, no people, no text, no watermark, no logos.`;
   return `Turn this simple 3D render into a photorealistic interior photograph of a newly renovated bathroom in a German home.
 Keep EXACTLY the same camera position, perspective, room shape, wall positions, window and door positions, and the position, size and type of every fixture shown in the render. Do not add, remove or move fixtures. Do not change the layout.
-Replace the plain 3D look with real materials, real textures, physically correct light, soft shadows and natural reflections.
+Replace the plain 3D look with real materials, real textures, physically correct light, soft shadows and natural reflections. Every block in the render IS the fixture listed for that position – texture it, do not reinterpret or relocate it.
+${extra}
 ${look}
 Style: high-end architectural interior photography, shot on a full-frame camera with a 24 mm lens, eye level, sharp, natural colours, no people, no text, no watermark, no logos.`;
 }
-async function photo(cfg, dataUrl, plan, kind) {
-  if (!cfg.openaiKey) throw new AiError(400, 'Für echte Fotos fehlt noch der Schlüssel für die Bild-KI (OpenAI). Ein Admin kann ihn unter „KI“ eintragen.');
-  if (!/^data:image\/(jpeg|png|webp);base64,/.test(dataUrl || '')) throw new AiError(400, 'Kein gültiges Bild der Ansicht erhalten.');
+async function genImage(cfg, dataUrl, prompt, kind) {
   const base = (process.env.OPENAI_BASE_URL || 'https://api.openai.com').replace(/\/$/, '');
-  const body = { images: [{ image_url: dataUrl }], prompt: photoPrompt(plan, kind), size: kind === 'pano' ? '2048x1024' : '1536x1024', quality: cfg.imageQuality || 'high', output_format: 'jpeg', n: 1 };
+  const body = { images: [{ image_url: dataUrl }], prompt, size: kind === 'pano' ? '2048x1024' : '1536x1024', quality: cfg.imageQuality || 'high', output_format: 'jpeg', n: 1 };
   if (cfg.imageModel) body.model = cfg.imageModel;
   // möglichst nah an der Vorlage bleiben (Kanten und Objekte nicht verschieben); Modelle ohne diese Option bekommen die Anfrage ohne
   body.input_fidelity = 'high';
@@ -631,6 +713,58 @@ async function photo(cfg, dataUrl, plan, kind) {
   if (!b64) throw new AiError(502, 'Die Bild-KI hat kein Bild geliefert. Bitte noch einmal versuchen.');
   return Buffer.from(b64, 'base64');
 }
+
+// Prüfung: Claude vergleicht 3D-Render (Vorlage) und KI-Foto Teil für Teil
+const CHECK_TOOL = {
+  name: 'pruefung', description: 'Ergebnis der Prüfung speichern.',
+  input_schema: { type: 'object', required: ['passt', 'abweichungen', 'fixes'], properties: {
+    passt: { type: 'boolean', description: 'true nur, wenn ALLE Teile an derselben Stelle wie im 3D-Render sind und nichts dazugekommen oder weggefallen ist.' },
+    abweichungen: { type: 'array', items: { type: 'string' }, description: 'Jede Abweichung als kurzer deutscher Satz, z. B. „WC steht mitten im Raum statt hinter der Trennwand“. Leer, wenn alles passt.' },
+    fixes: { type: 'array', items: { type: 'string' }, description: 'Dieselben Punkte als kurze englische Anweisung an die Bild-KI, z. B. "The toilet must stay hidden behind the partition wall at 60–70 %; remove the toilet at 30 %."' },
+  } },
+};
+async function checkPhoto(cfg, dataUrl, buf, layout, kind) {
+  const mt = dataUrl.slice(5, dataUrl.indexOf(';'));
+  const text = `Bild 1 ist ein einfacher 3D-Render aus einem Badplaner – er ist VERBINDLICH. Bild 2 ist ein daraus erzeugtes KI-Foto${kind === 'pano' ? ' (beide sind 360°-Rundumbilder, links und rechts hängen zusammen)' : ''}.
+Prüfe streng, ob Bild 2 genau dem 3D-Render entspricht:
+- Jedes Sanitärteil (WC, Waschtisch, Dusche, Wanne, Heizkörper, Schränke) steht an derselben Stelle (horizontale Lage höchstens etwa 5 % der Bildbreite daneben), in derselben Größe und auf derselben Seite von Wänden, Trennwänden, Vorwänden und Nischen.
+- Kein Teil ist dazugekommen (z. B. ein zweites WC, eine Wanne, ein Waschtisch, eine Tür oder ein Fenster, die es im Render nicht gibt) und keines fehlt.
+- Was im Render hinter einer Wand verdeckt ist, darf im Foto nicht sichtbar oder nach vorne geholt sein.
+- Wände, Trennwände, Nischen, Tür und Fenster haben dieselbe Lage und Form.
+Unwichtig sind: Materialien, Farben, Licht, Deko (Handtücher, Pflanzen, Seife), kleine Accessoires und leichte Unschärfen.
+${layout ? 'Soll-Lage laut 3D-Modell:\n' + layout.text + '\n' : ''}Speichere das Ergebnis mit dem Werkzeug „pruefung“. Im Zweifel: passt = false.`;
+  const messages = [{ role: 'user', content: [
+    { type: 'text', text: 'Bild 1 (3D-Render, verbindlich):' }, { type: 'image', source: { type: 'base64', media_type: mt, data: dataUrl.slice(dataUrl.indexOf(',') + 1) } },
+    { type: 'text', text: 'Bild 2 (KI-Foto):' }, { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: buf.toString('base64') } },
+    { type: 'text', text } ] }];
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const data = await request(cfg, { max_tokens: 2000, tools: [CHECK_TOOL], tool_choice: { type: 'auto' }, messages }, 120000, 'Die Prüfung des Fotos hat zu lange gedauert.');
+    const use = (data.content || []).find(c => c.type === 'tool_use' && c.name === CHECK_TOOL.name);
+    if (use && typeof use.input?.passt === 'boolean') return { ok: use.input.passt && !(use.input.abweichungen || []).length, issues: use.input.abweichungen || [], fixes: use.input.fixes || [] };
+    messages.push({ role: 'assistant', content: data.content && data.content.length ? data.content : [{ type: 'text', text: '…' }] });
+    messages.push({ role: 'user', content: 'Bitte speichere das Ergebnis jetzt mit dem Werkzeug „pruefung“.' });
+  }
+  return null; // Prüfung nicht möglich
+}
+
+const PHOTO_TRIES = 3;
+async function photo(cfg, dataUrl, plan, kind, view) {
+  if (!cfg.openaiKey) throw new AiError(400, 'Für echte Fotos fehlt noch der Schlüssel für die Bild-KI (OpenAI). Ein Admin kann ihn unter „KI“ eintragen.');
+  if (!/^data:image\/(jpeg|png|webp);base64,/.test(dataUrl || '')) throw new AiError(400, 'Kein gültiges Bild der Ansicht erhalten.');
+  let layout = null; try { layout = sceneLayout(plan, view, kind); } catch (e) { console.warn('Lageberechnung:', e.message); }
+  const canCheck = !!cfg.key;
+  let retry = [], issues = [];
+  for (let i = 0; i < PHOTO_TRIES; i++) {
+    const buf = await genImage(cfg, dataUrl, photoPrompt(plan, kind, layout, retry), kind);
+    if (!canCheck) return buf;
+    let res; try { res = await checkPhoto(cfg, dataUrl, buf, layout, kind); } catch (e) { console.warn('Fotoprüfung fehlgeschlagen:', e.message); res = null; }
+    if (!res) { console.warn('KI-Foto konnte nicht geprüft werden, wird ungeprüft gespeichert'); return buf; } // Prüf-KI technisch nicht erreichbar
+    if (res.ok) return buf;
+    issues = res.issues; retry = res.fixes.length ? res.fixes : res.issues;
+    console.log(`KI-Foto (${kind}) Versuch ${i + 1} abgelehnt: ${issues.join(' | ')}`);
+  }
+  throw new AiError(422, `Die Bild-KI hat das Bad ${PHOTO_TRIES}-mal nicht genau nach dem 3D-Modell erzeugt, deshalb wurde nichts gespeichert.` + (issues.length ? ' Zuletzt: ' + issues.slice(0, 3).join('; ') + '.' : '') + ' Tipp: Standpunkt etwas verschieben und noch einmal versuchen.');
+}
 async function testImage(cfg) {
   if (!cfg.openaiKey) throw new AiError(400, 'Kein Schlüssel für die Bild-KI eingetragen.');
   const base = (process.env.OPENAI_BASE_URL || 'https://api.openai.com').replace(/\/$/, '');
@@ -642,4 +776,4 @@ async function testImage(cfg) {
   return { ok: true, models: img };
 }
 
-module.exports = { layouts, mounts, design, test, refreshTrends, listModels, photo, photoPrompt, testImage, conflicts, normalize, describe, AiError, CATALOG };
+module.exports = { layouts, mounts, design, test, refreshTrends, listModels, photo, photoPrompt, sceneLayout, checkPhoto, testImage, conflicts, normalize, describe, AiError, CATALOG };

@@ -986,8 +986,8 @@ function capture(){
   const url=renderer.domElement.toDataURL('image/jpeg',.9);
   renderer.setPixelRatio(pr);mode=m;size();if(helper)helper.visible=hv;return url}
 mk.onclick=async()=>{if(mk.disabled)return;mk.disabled=true;const t0=Date.now();
-  const tick=()=>showMsg(`Die KI macht aus der Ansicht ein echtes Foto … ${Math.round((Date.now()-t0)/1000)} s (dauert meist 30 bis 90 Sekunden)`);tick();const iv=setInterval(tick,1000);
-  try{const img=capture();const r=await fetch('/api/variants/'+VID+'/photo',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({image:img})});
+  const tick=()=>showMsg(`Die KI macht aus der Ansicht ein echtes Foto … ${Math.round((Date.now()-t0)/1000)} s (mit Prüfung meist 1 bis 3 Minuten)`);tick();const iv=setInterval(tick,1000);
+  try{const img=capture();const r=await fetch('/api/variants/'+VID+'/photo',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({image:img,x:walk.x+center[0],z:walk.z+center[1],yaw:walk.yaw})});
     const d=await r.json().catch(()=>({}));clearInterval(iv);if(!r.ok)throw new Error(d.error||'Fehler '+r.status);
     showMsg('');showPhoto(d.id,'Neues KI-Foto');loadPhotos()}
   catch(e){clearInterval(iv);showMsg(e.message,true)}finally{mk.disabled=false}};
@@ -1016,7 +1016,7 @@ function capturePano(){
 mkp.onclick=async()=>{if(mkp.disabled)return;
   if(mode!=='walk'){setMode('walk');showMsg('Tippe auf den Boden, wo du im Bad stehen möchtest. Dann noch einmal auf „360° hier aufnehmen“.');return}
   mkp.disabled=true;mk.disabled=true;const t0=Date.now();
-  const tick=()=>showMsg(`Die KI macht ein 360°-Foto von diesem Standpunkt … ${Math.round((Date.now()-t0)/1000)} s (dauert meist 1 bis 2 Minuten)`);tick();const iv=setInterval(tick,1000);
+  const tick=()=>showMsg(`Die KI macht ein 360°-Foto von diesem Standpunkt … ${Math.round((Date.now()-t0)/1000)} s (mit Prüfung meist 2 bis 5 Minuten)`);tick();const iv=setInterval(tick,1000);
   try{await new Promise(r=>setTimeout(r,30));const img=capturePano();
     const r=await fetch('/api/variants/'+VID+'/pano',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({image:img,x:walk.x+center[0],z:walk.z+center[1],yaw:walk.yaw})});
     const d=await r.json().catch(()=>({}));clearInterval(iv);if(!r.ok)throw new Error(d.error||'Fehler '+r.status);
@@ -1046,7 +1046,7 @@ const atb=document.getElementById('autotour');if(!VID)atb.hidden=true;let tourBu
 atb.onclick=async()=>{if(tourBusy)return;await loadPhotos();
   const spots=tourSpots(16).filter(sp=>!panos.some(q=>q.x!=null&&Math.hypot(q.x-sp.x,q.z-sp.z)<.5));
   if(!spots.length){showMsg(panos.length?'Der Raum ist schon komplett abgedeckt. „Rundgang ansehen“ antippen.':'Keine freien Standpunkte gefunden.',!panos.length);return}
-  if(!atb.dataset.sure){atb.dataset.sure=1;atb.textContent=`Ja, ${spots.length} Standpunkte erstellen`;showMsg(`Die App verteilt ${spots.length} Standpunkte über das ganze Bad (auch hinter Trennwänden) und macht von jedem ein 360°-Foto. Das dauert einige Minuten und kostet ${spots.length} Bild-KI-Fotos (bei OpenAI grob 0,10–0,25 € pro Foto). Zum Starten noch einmal tippen.`);setTimeout(()=>{if(!tourBusy){delete atb.dataset.sure;atb.textContent='Ganzer Rundgang (automatisch)'}},9000);return}
+  if(!atb.dataset.sure){atb.dataset.sure=1;atb.textContent=`Ja, ${spots.length} Standpunkte erstellen`;showMsg(`Die App verteilt ${spots.length} Standpunkte über das ganze Bad (auch hinter Trennwänden) und macht von jedem ein 360°-Foto. Das dauert einige Minuten und kostet mindestens ${spots.length} Bild-KI-Fotos (bei OpenAI grob 0,10–0,25 € pro Foto; passt ein Foto nicht genau zum 3D-Modell, wird es bis zu 2-mal neu erzeugt). Zum Starten noch einmal tippen.`);setTimeout(()=>{if(!tourBusy){delete atb.dataset.sure;atb.textContent='Ganzer Rundgang (automatisch)'}},9000);return}
   delete atb.dataset.sure;tourBusy=true;atb.disabled=mk.disabled=mkp.disabled=true;atb.textContent='Rundgang wird erstellt …';
   const saved={x:walk.x,z:walk.z,yaw:walk.yaw,m:mode};let done=0,fail=0,next=0,lastErr='';const t0=Date.now();
   const tick=()=>showMsg(`Rundgang: ${done} von ${spots.length} Standpunkten fertig${fail?`, ${fail} fehlgeschlagen`:''} · ${Math.round((Date.now()-t0)/1000)} s. Bitte die Seite offen lassen.`);tick();const iv=setInterval(tick,1000);
