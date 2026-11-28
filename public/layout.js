@@ -89,7 +89,7 @@
   function doorOf(ctx) {
     const tu = ctx.items.find(i => i.type === 'tu'); if (!tu) return null;
     const W = walls(ctx.pts), m = W[tu.wall] || W[0], w = dimsOf(tu).w;
-    return { it: tu, m, w, p: P(m, tu.t, .3), n: m.n, swing: quadM(m, tu.t - w / 2, tu.t + w / 2, 0, w + .05) };
+    return { it: tu, m, w, p: P(m, tu.t, .3), n: m.n, swing: quadM(m, tu.t - w / 2, tu.t + w / 2, 0, (tu.auf || 'innen') === 'innen' ? w + .05 : .5) };
   }
   function windowsOf(ctx) { const W = walls(ctx.pts); return ctx.items.filter(i => i.type === 'fe').map(f => ({ wall: f.wall, u0: f.t - dimsOf(f).w / 2, u1: f.t + dimsOf(f).w / 2, low: (f.y ?? 1.1) < 1.3, m: W[f.wall] })); }
   // sieht man den Punkt von der Tür aus?

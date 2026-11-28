@@ -115,7 +115,7 @@ function conflicts(plan) {
   const fl = plan.items.filter(it => it.type === 'tu' || it.type === 'fw' || (FLOOR_TYPES.includes(it.type) && !(it.type === 'mo' && it.v === 'regal')));
   const shapes = fl.map(it => {
     if (it.type === 'fw') { const dx = it.b[0] - it.a[0], dz = it.b[1] - it.a[1], l = Math.hypot(dx, dz) || .001, m = { A: it.a, d: [dx / l, dz / l], n: [-dz / l, dx / l] }; return { it, r: rectOf(m, S, l - S, -.06 + S, .06 - S), m, at: 'frei' }; }
-    const m = mountOf(it, ms), D = dimsOf(it.type === 'tu' ? { ...it, type: 'ni', v: 'n' } : it), w = it.type === 'tu' ? (it.w ?? .86) : D.w, d = it.type === 'tu' ? w : D.d, o = it.off || 0;
+    const m = mountOf(it, ms), D = dimsOf(it.type === 'tu' ? { ...it, type: 'ni', v: 'n' } : it), w = it.type === 'tu' ? (it.w ?? .86) : D.w, d = it.type === 'tu' ? ((it.auf || 'innen') === 'innen' ? w : .3) : D.d, o = it.off || 0;
     return { it, m, at: m.name, w, d, o, r: rectOf(m, it.t - w / 2 + S, it.t + w / 2 - S, o + S, o + d - S) };
   });
   shapes.forEach(s => {
