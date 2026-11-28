@@ -56,6 +56,7 @@
     if (w < .7) return null;
     // Nichts darf in die fertige Fläche ragen: Tiefe ggf. verkürzen
     obs.forEach(o => { if (o === front || o === lo || o === ro) return; const r = range(o.lp, 1, tt - w / 2 + .03, tt + w / 2 - .03); if (r && r.lo > .3 && r.lo < d) d = r.lo; });
+    if (opt.maxD) d = Math.min(d, opt.maxD);
     if (d < .7) return null;
     return { t: +tt.toFixed(3), w: +w.toFixed(3), d: +d.toFixed(3), ...classify(m, tt, w, d, obstacles, opt) };
   }

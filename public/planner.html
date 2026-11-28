@@ -220,8 +220,8 @@ details.all summary{cursor:pointer;font-weight:600;color:var(--pet);min-height:4
 <div class="viewer" id="viewer"><div class="bar"><span id="vinfo">KI-Foto</span><button class="close" id="vclose">✕ Schließen</button></div><img id="vimg" alt="KI-Foto des geplanten Bades"><p class="foot">Zum Speichern lange auf das Foto drücken. KI-Fotos sind eine Visualisierung, Details können leicht abweichen.</p></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="/geo.js?v=21"></script>
-<script src="/layout.js?v=21"></script>
+<script src="/geo.js?v=22"></script>
+<script src="/layout.js?v=22"></script>
 <script>
 {
 /* ================= Katalog (Beispielpreise) ================= */
@@ -935,18 +935,29 @@ function kiView(){
 
   else if(!kiBusy)h+=`<div class="kiempty"><div class="kiillu">${['⊥','▯','⇹','≋','◯'].map(x=>`<i>${x}</i>`).join('')}</div><p>Wünsche antippen und „Vorschläge berechnen“.</p><p class="small">Lieber selbst planen? <button class="linkbtn" data-act="go3">Direkt zum Einrichten</button></p></div>`;
   return h}
+let layoutWorker=null;
+function layoutRun(base,wish,exclude){return new Promise((res,rej)=>{
+  const local=()=>{try{const list=LAYOUT.generate(base,wish,{exclude});res({list:Object.assign(list,{why:list.why})})}catch(e){rej(e)}};
+  try{if(!layoutWorker){const o=location.origin,src=`importScripts('${o}/geo.js?v=22','${o}/layout.js?v=22');onmessage=e=>{try{const l=LAYOUT.generate(e.data.base,e.data.wish,{exclude:e.data.exclude});postMessage({list:l,why:l.why})}catch(x){postMessage({err:x.message})}}`;
+      layoutWorker=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'})))}
+    const t=setTimeout(()=>{layoutWorker.terminate();layoutWorker=null;local()},20000);
+    layoutWorker.onmessage=e=>{clearTimeout(t);if(e.data.err)rej(new Error(e.data.err));else{const l=e.data.list;l.why=e.data.why;res({list:l})}};
+    layoutWorker.onerror=e=>{clearTimeout(t);layoutWorker=null;local()};
+    layoutWorker.postMessage({base,wish,exclude})}catch(e){local()}})}
 function kiApply(i){const v=kiRes.list[i];if(!v)return;kiUndo={items:JSON.parse(JSON.stringify(S.items)),nid:S.nid};kiApplied=v.name;
   S.items=JSON.parse(JSON.stringify(v.plan.items));S.items.forEach(it=>{const t=T[it.type];if(!t)return;Object.entries(t.opts||{}).forEach(([k,o])=>{if(it[k]==null)it[k]=o.def});if(t.arms&&!it.arm)it.arm=t.arms[0].id});S.items=S.items.filter(it=>T[it.type]);S.nid=Math.max(v.plan.nid||1,...S.items.map(x=>x.id+1));sel=null;fixItems();save();build()}
 async function kiAction(a,i){
   if(a==='run'||a==='fresh'){if(kiBusy)return;const wi=document.getElementById('kiwish'),nw=wi?wi.value:'';if(nw!==kiWish||a==='fresh')kiShown=[];kiWish=nw;kiBusy=true;kiErr='';kiInfo='';render();
-    setTimeout(()=>{const t0=performance.now();try{fitShowers();const base={pts:S.pts,items:S.items.filter(x=>['tu','fe'].includes(x.type)||(x.type==='fw'&&!x.ki))},w={chips:kiChips,text:kiWish};
-      let list=LAYOUT.generate(base,w,{exclude:kiShown}),again=false;
-      if(!list.length&&kiShown.length){kiShown=[];list=LAYOUT.generate(base,w);again=true}
-      const first=!kiShown.length;kiShown=kiShown.concat(list.map(x=>x.sig));kiRes={list,at:Date.now()};
+    const t0=performance.now();fitShowers();
+    const base={pts:S.pts,items:S.items.filter(x=>['tu','fe'].includes(x.type)||(x.type==='fw'&&!x.ki)).map(x=>({...x}))},w={chips:kiChips,text:kiWish};
+    const done=(list,again)=>{const first=!kiShown.length;kiShown=kiShown.concat(list.map(x=>x.sig));kiRes={list,at:Date.now()};
       const sec=((performance.now()-t0)/1000).toFixed(1).replace('.',',');
       kiWarn=!list.length;kiInfo=!list.length?`Keine passende Anordnung gefunden. ${list.why||''}`:again?`Keine weiteren Varianten – wieder die besten ${list.length} (${sec} s).`:first?`✓ ${list.length} Vorschläge berechnet (${sec} s).`:`✓ ${list.length} weitere Varianten berechnet (${sec} s).`;
-      try{localStorage.setItem('ki-res-'+(VID||'local'),JSON.stringify(kiRes))}catch(e){}}catch(e){kiErr='Fehler bei der Berechnung: '+e.message}
-      kiBusy=false;if(tab==='ki'){render();const g=document.querySelector('.kiinfo')||document.querySelector('.kierr');if(g)g.scrollIntoView({behavior:'smooth',block:'center'})}},40);return}
+      try{localStorage.setItem('ki-res-'+(VID||'local'),JSON.stringify(kiRes))}catch(e){}
+      kiBusy=false;if(tab==='ki'){render();const g=document.querySelector('.kiinfo')||document.querySelector('.kierr');if(g)g.scrollIntoView({behavior:'smooth',block:'center'})}};
+    const fail=e=>{kiErr='Fehler bei der Berechnung: '+(e&&e.message||e);kiBusy=false;if(tab==='ki')render()};
+    // im Hintergrund rechnen, damit die Seite nicht hängt
+    layoutRun(base,w,kiShown).then(r=>{if(!r.list.length&&kiShown.length){kiShown=[];return layoutRun(base,w,[]).then(r2=>done(r2.list,true))}done(r.list,false)}).catch(fail);return}
   if(a==='apply'){kiApply(i);render();window.scrollTo({top:0,behavior:'smooth'});return}
   if(a==='look'){kiApply(i);render();open3d();if(mode!=='orbit')setMode('orbit');return}
   if(a==='undo'&&kiUndo){S.items=kiUndo.items;S.nid=kiUndo.nid;kiUndo=null;kiApplied=null;sel=null;fixItems();save();build();render()}}

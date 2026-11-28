@@ -132,18 +132,25 @@
   const windowHit = (ctx, m, u0, u1) => windowsOf(ctx).some(wn => m.key === wn.wall && u1 > wn.u0 + .02 && u0 < wn.u1 - .02);
 
   // Dusche: in Nische/Ecke einpassen (geo.js), Einstieg muss frei sein
+  // Dusche: probiert erst die volle Nische, dann weniger tief, falls sonst der Einstieg nicht frei bleibt
   function placeShower(ctx, m, t, opt = {}) {
+    let r = placeShower1(ctx, m, t, opt);
+    for (const maxD of [1.4, 1.2, 1.0, .9]) { if (!r || !r.fail) break; if (maxD >= r.d - .01) continue; r = placeShower1(ctx, m, t, { ...opt, maxD }); }
+    return r && r.fail ? null : r;
+  }
+  function placeShower1(ctx, m, t, opt = {}) {
     const obs = [...ctx.walls, ...ctx.solids];
     const door = doorOf(ctx); if (door) obs.push({ poly: door.swing, wall: false, name: 'Tür' });
     const mm = { ...m, label: m.name };
-    const r = G.fitShower(mm, t, obs, { room: ctx.pts, defW: opt.w || 1.2, defD: opt.d || .9, full: opt.full });
+    const r = G.fitShower(mm, t, obs, { room: ctx.pts, defW: opt.w || 1.2, defD: opt.d || .9, full: opt.full, maxD: opt.maxD || 0 });
     const mn = opt.min || .9; if (!r || r.w < mn || r.d < mn) return null;
     const solid = quadM(m, r.t - r.w / 2, r.t + r.w / 2, 0, r.d);
     if (!insideAll(ctx, solid) || hitsAny(solid, ctx.solids) || (door && overlap(shrink(solid, .012), door.swing))) return null;
     // Einstieg: 70 cm frei
     const e = r.entry, fd = opt.small ? .6 : .7, cl = e === 'v' ? quadM(m, r.t - r.w / 2 + .1, r.t + r.w / 2 - .1, r.d, r.d + fd) : e === 'r' ? quadM(m, r.t + r.w / 2, r.t + r.w / 2 + fd, .1, r.d - .1) : quadM(m, r.t - r.w / 2 - fd, r.t - r.w / 2, .1, r.d - .1);
-    if (!insideAll(ctx, cl) || hitsAny(cl, ctx.solids) || hitsAny(cl, innerWalls(ctx))) return null;
+    if (!insideAll(ctx, cl) || hitsAny(cl, ctx.solids) || hitsAny(cl, innerWalls(ctx))) return { fail: 'entry', d: r.d };
     if (windowHit(ctx, m, r.t - r.w / 2, r.t + r.w / 2)) { ctx.notes.push('Fenster im Duschbereich – Fenster mit Spritzschutz einplanen.'); ctx.score += 1; }
+    const nW = ['h', 'v', 'l', 'r'].filter(k => r.sides[k].wall).length; ctx.score -= .6 * (nW - 1);
     const armWall = r.sides[r.arm];
     const it = addItem(ctx, { type: 'du', v: 'flex', ...hostOf(m), t: r.t, w: r.w, d: r.d, mass: 'auto', boden: 'eben', ablauf: opt.ablauf || 'rinnef', glas: opt.glass || (r.d >= 1.2 && Object.values(r.sides).filter(s => s.wall).length >= 3 ? 'ohne' : 'klar'), arm: 'up' },
       { solid, clear: cl, name: 'Dusche' });
@@ -169,6 +176,8 @@
       if (windowHit(ctx, c.m, c.t - .3, c.t + .3)) s += .3;
       s += .35 * plumbing(ctx, c.center);
       const fr = freeSpan(ctx, c.m, c.t); if (fr && Math.min(c.t - fr[0], fr[1] - c.t) < .45) s += .3;
+      if (fr && fr[1] - fr[0] < 1.8) s += 1.2 * Math.abs(c.t - (fr[0] + fr[1]) / 2); // in schmalen Bereichen mittig
+      if (nicheScore(ctx, c.center) >= 3) s -= .8; // WC in einer Nische
       return s;
     });
     if (!b) return null;
@@ -190,7 +199,8 @@
       if (sv.vis) s -= sv.facing ? 1.2 : .7; // schöner erster Blick
       if (windowHit(ctx, c.m, c.t - w / 2, c.t + w / 2)) s += 1.6; // Spiegel nicht möglich
       s += .3 * plumbing(ctx, c.center);
-      s -= { w140: .6, w120: .4, w100: .5, w80: .35, w60: 0, auf2: .6 }[v];
+      s -= { w140: .6, w120: .4, w100: .5, w80: .35, w60: 0, h45: -.3, auf2: .6 }[v];
+      if (c.m.inner && nicheScore(ctx, c.front) <= 2) s -= 1.0; // an der Stirnseite einer Wand im Raum, frei davor
       // möglichst mittig auf der freien Wandfläche
       const free = freeSpan(ctx, c.m, c.t); if (free) { const mid = (free[0] + free[1]) / 2; s += .7 * Math.min(1, Math.abs(c.t - mid) / Math.max(.4, (free[1] - free[0]) / 2)); }
       return s;
@@ -201,6 +211,13 @@
     ctx.score += b.s;
     if (!windowHit(ctx, b.m, b.t - b.w / 2, b.t + b.w / 2)) addItem(ctx, { type: 'sp', v: 'led', ...hostOf(b.m), t: b.t, w: R2(Math.min(b.w, 1.2)) });
     return it;
+  }
+  function nicheScore(ctx, p) { // zählt Richtungen (oben/unten/links/rechts), in denen innerhalb 1,6 m eine Wand kommt
+    const obs = [...ctx.walls.map(w => w.poly)], W = walls(ctx.pts);
+    let n = 0;
+    [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dz]) => { for (let x = .1; x <= 1.6; x += .1) { const q = [p[0] + dx * x, p[1] + dz * x];
+      if (!G.pip(ctx.pts, q[0], q[1]) || obs.some(o => G.pip(o, q[0], q[1]))) { n++; break; } } });
+    return n;
   }
   function freeSpan(ctx, m, t) { // freier Bereich auf dieser Fläche um t (zwischen Ecken und Bodenobjekten)
     let lo = 0, hi = m.len; const band = quadM(m, 0, m.len, .02, .3);
@@ -284,6 +301,7 @@
 
   // ---------- Konzepte ----------
   const CONCEPTS = {
+    eigen: { titel: 'Mit deinen Wänden', konzept: 'Deine Nischen', text: 'Nutzt die Nischen deiner Wände: Dusche passgenau an die Wand im Raum, WC geschützt in der Nische, Waschtisch an der Stirnseite.', trend: 'Zonen statt offener Fläche – jede Nische hat ihre Aufgabe.' },
     ecke: { titel: 'Dusche in der Ecke', konzept: 'Klassisch', text: 'Alles an den Wänden: die Dusche passgenau in der Ecke, viel freie Fläche in der Mitte. Günstig und zeitlos.', trend: 'Bodengleiche Dusche mit befliesbarer Rinne – ruhiges, fugenarmes Bild.' },
     tl: { titel: 'T-Lösung mit Walk-in', konzept: 'T-Lösung', text: 'Eine Wand ragt in den Raum und bildet eine geschützte Duschnische. Davor bleibt alles offen, der Waschtisch kann direkt an die T-Wand.', trend: 'Walk-in ohne Glastür hinter einer gefliesten Wand – pflegeleicht und wohnlich.' },
     tp: { titel: 'Raumteiler mit Duschnische', konzept: 'Raumteiler', text: 'Eine Wand parallel zur Rückwand teilt eine Nasszone ab. Der Waschtisch sitzt vorne am Raumteiler, die Dusche verschwindet dahinter.', trend: 'Zonierung statt offener Fläche: Wasch- und Duschbereich klar getrennt.' },
@@ -294,7 +312,8 @@
   };
   function finish(ctx, wish) { // fehlende Hauptobjekte ergänzen und bewerten
     if (wish.wanne && !ctx.items.find(i => i.type === 'wa')) {
-      let best = null; ctx.ms.filter(m => !m.inner).forEach(m => ['r170'].forEach(v => [DIM.wa[v][0] / 2 + .005, m.len - DIM.wa[v][0] / 2 - .005, m.len / 2].forEach(t => {
+      let best = null; ctx.ms.forEach(m => ['r170'].forEach(v => [...new Set([DIM.wa[v][0] / 2 + .005, m.len - DIM.wa[v][0] / 2 - .005, m.len / 2].map(R2))].forEach(t => {
+        if (late() && best) return;
         const c = clone(ctx); if (!placeTub(c, m, t, v)) return; const r = finishRest(c, wish); if (r && (!best || r.e.score < best.e.score)) best = r; })));
       return best;
     }
@@ -303,7 +322,7 @@
   function finishRest(ctx, wish) {
     if (wish.dusche && !ctx.items.find(i => i.type === 'du')) {
       let best = null;
-      ctx.ms.filter(m => !m.inner).forEach(m => [.45, m.len - .45].forEach(t => (wish.small ? [[.9, .9], [1.0, .9], [1.2, .9]] : [[1.2, .9], [1.4, 1]]).forEach(([w, d]) => {
+      ctx.ms.forEach(m => [...new Set((m.inner ? [.45, m.len - .45, m.len / 2] : [.45, m.len - .45]).map(R2))].filter(t => t > 0 && t < m.len).forEach(t => (wish.small ? [[.9, .9], [1.0, .9], [1.2, .9]] : [[1.2, .9], [1.4, 1]]).forEach(([w, d]) => {
         if (late() && best) return; const c = clone(ctx); if (!placeShower(c, m, t, { w, d, min: wish.small ? .8 : .9, small: wish.small })) return; const r = finishBasics(c, wish); if (r && (!best || r.e.score < best.e.score)) best = r; })));
       return best;
     }
@@ -333,7 +352,7 @@
       deadline = Math.max(deadline, Date.now() + 2500);
       const r = run(b, w, ex); const seen2 = new Set(out.map(o => o.sig));
       r.forEach(o => { if (!seen2.has(o.sig)) { if (label) o.hinweise = [`Hinweis: ${label}`, ...o.hinweise].slice(0, 3); out.push(o); } });
-      if (out.length >= 2) break; if (r.length && !how) how = label;
+      if (out.length >= 2 || (out.length && userWalls)) break; if (r.length && !how) how = label;
     }
     out = out.slice(0, 6);
     out.why = out.length ? '' : diagnose(base, wish);
@@ -360,14 +379,19 @@
       if (L0.some(x => x.sig === r.sig)) return; L0.push(r); L0.sort((a, b) => a.e.score - b.e.score); if (L0.length > 4) L0.pop(); };
     const wantShower = wish.dusche;
     // Ecke / klassisch
-    keep('ecke', finish(start, wish));
+    if (start.items.some(it => it.type === 'fw')) {
+      start.ms.forEach(m => [...new Set([.45, m.len - .45, m.len / 2].map(R2))].filter(t => t > 0 && t < m.len).forEach(t => {
+        if (late() || !wish.dusche) return; const c = clone(start); if (!placeShower(c, m, t, { w: 1.2, d: 1.0, min: wish.small ? .8 : .9, small: wish.small })) return; keep('eigen', finish(c, wish)); }));
+      if (!wish.dusche) keep('eigen', finish(start, wish));
+    } else keep('ecke', finish(start, wish));
     W.forEach((w, i) => [0, 1].forEach(sd => {
       if (late()) return;
       const prev = W[(i - 1 + W.length) % W.length], next = W[(i + 1) % W.length], adj = sd ? next : prev;
       const cornerOk = Math.abs(w.d[0] * adj.d[0] + w.d[1] * adj.d[1]) < .1; // rechter Winkel
       if (!cornerOk) return;
+      const own = start.items.some(it => it.type === 'fw');
       // T-Lösung: Wand senkrecht von Wand i in den Raum, Dusche zwischen Ecke und T-Wand
-      if (wantShower) [1.0, 1.2, 1.4].forEach(x => [1.2, 1.4, 1.6].forEach(L => {
+      if (wantShower && !own) [1.0, 1.2, 1.4].forEach(x => [1.2, 1.4, 1.6].forEach(L => {
         const u = sd ? w.len - x - .06 : x + .06; if (u < .9 || u > w.len - .5) return;
         const c = clone(start); const a = P(w, u, 0), b = P(w, u, L);
         c.items.push({ id: c.nid++, type: 'fw', v: 'hoch', a: a.map(R2), b: b.map(R2), ki: true }); refresh(c);
@@ -375,7 +399,7 @@
         keep('tl', finish(c, wish));
       }));
       // Raumteiler: Wand parallel zu Wand i, Dusche dahinter, Einstieg von der Seite
-      if (wantShower) [1.0, 1.2].forEach(D => [1.2, 1.4, 1.6].forEach(x => {
+      if (wantShower && !own) [1.0, 1.2].forEach(D => [1.2, 1.4, 1.6].forEach(x => {
         if (x > w.len - .8) return;
         const C = sd ? w.B : w.A, dir = sd ? [-w.d[0], -w.d[1]] : w.d;
         const a = [C[0] + w.n[0] * (D + .06), C[1] + w.n[1] * (D + .06)], b = [a[0] + dir[0] * x, a[1] + dir[1] * x];
@@ -384,7 +408,7 @@
         keep('tp', finish(c, wish));
       }));
       // WC-Nische mit halbhoher Trennwand
-      [.95, 1.05].forEach(x => [1.0, 1.2].forEach(L => {
+      if (!own) [.95, 1.05].forEach(x => [1.0, 1.2].forEach(L => {
         const u = sd ? w.len - x : x; if (u < .8 || u > w.len - .4) return;
         const c = clone(start); c.items.push({ id: c.nid++, type: 'tw', v: 'halb', wall: i, t: R2(u), d: L, ki: true }); refresh(c);
         const wcT = sd ? w.len - (x - .06) / 2 : (x - .06) / 2, m = c.ms[i], [ww, dd] = DIM.wc[wish.duschwc ? 'dusch' : 'wand'];
@@ -407,11 +431,12 @@
     }));
     // Ergebnisse aufbereiten, das Beste zuerst
     // je Konzept die beste noch nicht gezeigte Variante; gleiche Anordnungen nur einmal
-    const sigs = new Set(), core = r => r.ctx.items.filter(i => ['wc', 'wt', 'wa', 'fw', 'tw'].includes(i.type)).map(i => i.type + (i.host || i.wall) + Math.round((i.t || 0) * 5) + (i.a ? i.a.join() + i.b.join() : '')).sort().join('|');
-    return Object.entries(results).map(([k, L0]) => ({ k, r: L0[0] })).filter(x => x.r).sort((a, b) => a.r.e.score - b.r.e.score).filter(({ r }) => {
+    const cnt = {}, sigs = new Set(), core = r => r.ctx.items.filter(i => ['wc', 'wt', 'wa', 'fw', 'tw'].includes(i.type)).map(i => i.type + (i.host || i.wall) + Math.round((i.t || 0) * 5) + (i.a ? i.a.join() + i.b.join() : '')).sort().join('|');
+    return Object.entries(results).flatMap(([k, L0]) => (k === 'eigen' ? L0.slice(0, 3) : L0.slice(0, 1)).map(r => ({ k, r }))).filter(x => x.r).sort((a, b) => a.r.e.score - b.r.e.score).filter(({ r }) => {
       const c0 = core(r); if (sigs.has(c0)) return false; sigs.add(c0); return true; }).map(({ k, r }) => {
       const C = CONCEPTS[k], items = r.ctx.items.map(it => { const o = {}; Object.keys(it).forEach(x => { if (x[0] !== '_') o[x] = it[x]; }); return o; });
-      return { sig: r.sig, name: C.titel + (wish.small ? ' (kompakt)' : ''), konzept: C.konzept, note: C.text, trend: C.trend, pros: r.e.pros.slice(0, 5), hinweise: r.e.cons.slice(0, 3), score: Math.round(r.e.score * 10) / 10, plan: { items, nid: r.ctx.nid } };
+      const nth = (cnt[k] = (cnt[k] || 0) + 1);
+      return { sig: r.sig, name: C.titel + (nth > 1 ? ` – Variante ${nth}` : '') + (wish.small ? ' (kompakt)' : ''), konzept: C.konzept, note: C.text, trend: C.trend, pros: r.e.pros.slice(0, 5), hinweise: r.e.cons.slice(0, 3), score: Math.round(r.e.score * 10) / 10, plan: { items, nid: r.ctx.nid } };
     });
   }
   function parseWish(w) {
@@ -425,6 +450,6 @@
       barrierefrei: has('Barrierefrei', /barriere|rollstuhl|senior/), guenstig: has('Möglichst günstig', /günstig|budget/),
     };
   }
-  const api = { generate, parseWish, CONCEPTS };
+  const api = { generate, parseWish, CONCEPTS, _i: { makeCtx, refresh, placeShower, finishBasics, evaluate, clone, walls } };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.LAYOUT = api;
 })(typeof window !== 'undefined' ? window : globalThis);
