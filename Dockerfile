@@ -1,6 +1,6 @@
 FROM node:22-alpine
 WORKDIR /app
-COPY server.js ai.js passwort.js ./
+COPY server.js ai.js story.js passwort.js ./
 COPY public ./public
 ENV NODE_ENV=production PORT=8080 DATA_DIR=/app/data
 RUN mkdir -p /app/data && chown -R node:node /app

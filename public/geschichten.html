@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Bildgeschichten</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#1b1814);--panel:light-dark(#ffffff,#25211c);--beige:light-dark(#f2eadd,#2e2922);--beigeb:light-dark(#e2d4bf,#433b31);--ink:light-dark(#2b2620,#f1ebe1);--mute:light-dark(#7a6e60,#b4a897);--line:light-dark(#e7dccd,#3a342c);--pet:light-dark(#566b4a,#a9bd96);--petbg:light-dark(#ebeedf,#2c3326);--brass:#b8862f;--bad:light-dark(#b0472f,#ec8f77);--soft:light-dark(#efe6d8,#2c2721);--shadow:0 6px 24px rgba(60,45,25,.10)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Inter,system-ui,sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 16px) max(16px,env(safe-area-inset-right,0px)) 48px max(16px,env(safe-area-inset-left,0px))}
+h1{font-size:clamp(26px,6vw,34px);line-height:1.1;margin:6px 0 10px}
+h2{margin:28px 0 10px}
+.muted{color:var(--mute)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow)}
+label{display:block;font-weight:600;font-size:14px;margin:14px 0 6px}
+input,textarea,select{width:100%;font:16px Inter,sans-serif;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink)}
+textarea{min-height:84px;resize:vertical}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;background:var(--pet);color:#fff;font:600 15px Inter,sans-serif;padding:12px 18px;border-radius:12px;cursor:pointer;min-height:48px;text-decoration:none}
+.btn.ghost{background:var(--beige);color:var(--ink);border:1px solid var(--beigeb)}
+.btn.warn{background:none;border:1.5px solid currentColor;color:var(--bad)}
+.btn.sm{min-height:40px;padding:8px 12px;font-size:14px}
+.btn:disabled{opacity:.5;cursor:default}
+.acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.err{color:var(--bad);font-weight:600;font-size:14px;margin:10px 0 0;min-height:1.2em}
+.ok{color:var(--pet);font-weight:600;font-size:14px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{border:1px solid var(--beigeb);background:var(--beige);color:var(--ink);font:500 14px Inter,sans-serif;padding:8px 13px;border-radius:20px;cursor:pointer;min-height:40px}
+.chips button.on{border-color:var(--pet);background:var(--pet);color:#fff;font-weight:600}
+.row{display:grid;grid-template-columns:minmax(0,1fr) 3em;gap:12px;align-items:center}
+.row output{font-weight:700;font-size:18px;text-align:right;font-variant-numeric:tabular-nums}
+input[type=range]{padding:0;border:0!important;background:none!important;accent-color:var(--pet);height:34px}
+.hint{font-size:13px;color:var(--mute);margin:6px 0 0}
+/* Liste */
+.list{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.st{display:block;text-decoration:none;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
+.st .th{aspect-ratio:4/5;background:var(--soft) center/cover no-repeat;display:grid;place-items:center;color:var(--mute);font-size:13px}
+.st b{display:block;padding:9px 11px 0;font-size:15px;line-height:1.3}
+.st small{display:block;padding:0 11px 10px;color:var(--mute);font-size:12.5px}
+/* Geschichte */
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.back{display:inline-flex;gap:4px;align-items:center;color:var(--pet);font-weight:600;text-decoration:none;margin-bottom:6px}
+.bar{position:sticky;top:calc(env(safe-area-inset-top,0px) + 62px);z-index:20;background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 16px;box-shadow:var(--shadow)}
+.bar .prog{flex:1 1 160px;font-size:14px;font-weight:600}
+.bar .prog i{display:block;height:6px;border-radius:3px;background:var(--soft);margin-top:5px;overflow:hidden}
+.bar .prog i span{display:block;height:100%;background:var(--pet);transition:width .4s}
+.titlein{font:750 clamp(22px,5vw,30px)/1.15 Inter,sans-serif;letter-spacing:-.025em;border:0!important;background:none!important;padding:0;outline:none!important}
+.cast{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.fig{border:1px solid var(--line);border-radius:14px;padding:12px;background:var(--panel)}
+.fig input{font-weight:700;padding:6px 8px}
+.fig textarea{min-height:60px;font-size:14px;margin-top:6px;padding:8px}
+details summary{cursor:pointer;color:var(--mute);font-size:13px;font-weight:600;margin-top:8px}
+.sheet{display:grid;grid-template-columns:120px minmax(0,1fr);gap:14px;align-items:center;margin-top:12px}
+.sheet .pic{aspect-ratio:2/3;border-radius:12px;background:var(--soft) center/cover;border:1px solid var(--line);display:grid;place-items:center;font-size:12px;color:var(--mute);text-align:center;padding:6px}
+.scenes{display:grid;gap:14px}
+.sc{display:grid;grid-template-columns:minmax(0,240px) minmax(0,1fr);gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px;box-shadow:var(--shadow)}
+@media(max-width:600px){.sc{grid-template-columns:minmax(0,1fr)}}
+.pic{position:relative;aspect-ratio:4/5;border-radius:12px;background:var(--soft) center/cover no-repeat;overflow:hidden;display:grid;place-items:center;color:var(--mute);font-size:13px;text-align:center;padding:10px;cursor:zoom-in}
+.pic.empty{cursor:default}
+.pic .nr{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.55);color:#fff;font-weight:700;font-size:12.5px;padding:2px 8px;border-radius:10px}
+.pic .badge{position:absolute;bottom:8px;left:8px;right:8px;background:rgba(0,0,0,.62);color:#fff;font-size:12.5px;font-weight:600;padding:5px 8px;border-radius:9px}
+.pic .badge.warn{background:#9a6a1c}
+.pic .badge.bad{background:#9b3b27}
+.spin{width:26px;height:26px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--pet);animation:sp 1s linear infinite;display:inline-block}
+.spin.sm{width:16px;height:16px;border-width:2px;vertical-align:-3px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.sc .inh{font-size:14px;color:var(--mute);margin:0 0 6px}
+.bub{display:grid;grid-template-columns:minmax(0,9em) minmax(0,1fr) 36px;grid-template-areas:'s . x' 't t t';gap:4px;margin-bottom:10px;padding:8px;border:1px solid var(--line);border-radius:12px;background:var(--soft)}
+.bub select{grid-area:s;padding:6px 8px!important;font-weight:600}.bub textarea{grid-area:t;min-height:0;padding:8px 10px;font-size:15px;resize:none}.bub .x{grid-area:x;background:none}
+.bub select,.bub input{padding:8px 9px;font-size:15px}
+.x{border:0;background:var(--soft);color:var(--mute);border-radius:10px;cursor:pointer;font-size:18px}
+.small{font-size:13px;color:var(--mute)}
+.note{margin-top:8px;padding:9px 12px;border-left:3px solid var(--brass);background:var(--soft);border-radius:0 10px 10px 0;font-size:13.5px}
+.note.bad{border-left-color:var(--bad)}
+.save{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 84px);z-index:50;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+@media(min-width:641px){.save{bottom:24px}}
+.post textarea{min-height:120px}
+dialog{border:0;padding:0;background:transparent;max-width:min(92vw,560px)}
+dialog::backdrop{background:rgba(0,0,0,.8)}
+dialog img{display:block;width:100%;border-radius:12px}
+dialog .acts{justify-content:center}
+.busy{display:flex;align-items:center;gap:12px;font-weight:600}
+</style>
+<link rel="stylesheet" href="ui.css">
+</head>
+<body>
+<div class="wrap" id="app"><p class="muted">Lädt …</p></div>
+<dialog id="dlg"><img id="dimg" alt=""><div class="acts"><button class="btn ghost" id="dclose">Schließen</button></div></dialog>
+<script>
+'use strict';
+const app=document.getElementById('app');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function api(path,method='GET',body){
+  const r=await fetch(path,{method,headers:method!=='GET'?{'Content-Type':'application/json'}:{},body:method!=='GET'?JSON.stringify(body||{}):undefined,credentials:'same-origin'});
+  const d=await r.json().catch(()=>({}));
+  if(r.status===401){location.href='/';throw new Error('abgemeldet')}
+  if(!r.ok)throw new Error(d.error||'Fehler '+r.status);
+  return d}
+const IC={
+  logo:'<svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="var(--pet)"/><path d="M8 9h7v7H8zM17 9h7v7h-7zM8 18h7v5H8z" fill="#fff" opacity=".92"/><path d="M20.5 18.2c1.8 2.2 2.8 3.7 2.8 4.9a2.8 2.8 0 0 1-5.6 0c0-1.2 1-2.7 2.8-4.9z" fill="#e9c88a"/></svg>',
+  p:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2h7.5A2.5 2.5 0 0 1 21 9.5v8A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"/></svg>',
+  g:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="13" height="16" rx="2.5"/><path d="M19 6.5v11M21.5 8.5v7"/><path d="M6 14.5l2.5-3 2 2.2 1.5-1.7 2 2.5"/></svg>',
+  t:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.8a3.3 3.3 0 0 1 0 6.4M18.2 14.8c1.7.7 2.8 2.4 3.3 5.2"/></svg>',
+  a:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>',
+  k:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="4"/><path d="M4 20.5c1.2-4 4.3-6 8-6s6.8 2 8 6"/></svg>'};
+let me=null,styles=[],cur=null,dirty=false,timer=null;
+function shell(inner){
+  const tabs=[['p','/#/','Projekte'],['g','/geschichten.html','Geschichten'],...(me.role==='admin'?[['t','/#/team','Team'],['a','/#/ki','KI']]:[]),['k','/#/konto','Konto']];
+  const links=()=>tabs.map(([k,h,l])=>`<a href="${h}" class="${k==='g'?'on':''}">${IC[k]}<span>${l}</span></a>`).join('');
+  document.body.classList.add('hastabs');
+  app.innerHTML=`<header class="appbar"><a class="logo" href="/#/">${IC.logo}<span>Badplaner<small>Bildgeschichten</small></span></a><nav class="topnav2">${links()}</nav></header>${inner}<nav class="tabbar">${links()}</nav>`}
+const img=p=>`/api/story-images/${p.id}?v=${p.version}`;
+const STATE={offen:'Noch kein Bild',warten:'Wartet …',laeuft:'Wird gezeichnet …',fertig:'',warnung:'Bitte prüfen',fehler:'Fehler'};
+
+/* ---------- Übersicht ---------- */
+let opt={stil:'comic',anzahl:10,qualitaet:'medium'};
+async function viewList(){
+  stopPoll();
+  const list=await api('/api/stories');
+  shell(`<h1>Bildgeschichten</h1><p class="muted" style="margin-top:0">Die KI schreibt eine kurze Geschichte und zeichnet sie Bild für Bild – fertig für ein Instagram-Karussell.</p>
+  <div class="card" id="nw"><h2 style="margin-top:0">Neue Geschichte</h2>
+   <label for="idee">Idee <span class="muted" style="font-weight:500">(leer lassen = KI überrascht dich)</span></label>
+   <textarea id="idee" placeholder="z. B. Oma backt jeden Sonntag denselben Kuchen – erst nach ihrem 80. Geburtstag erfährt die Enkelin, warum."></textarea>
+   <label>Anzahl Bilder</label><div class="row"><input type="range" id="anz" min="4" max="15" value="${opt.anzahl}"><output id="anzo">${opt.anzahl}</output></div>
+   <label>Zeichenstil</label><div class="chips" id="stil">${styles.map(s=>`<button type="button" data-v="${s.id}" class="${s.id===opt.stil?'on':''}">${esc(s.name)}</button>`).join('')}</div>
+   <label>Bildqualität</label><div class="chips" id="qual"><button type="button" data-v="medium" class="${opt.qualitaet==='medium'?'on':''}">Normal · günstig</button><button type="button" data-v="high" class="${opt.qualitaet==='high'?'on':''}">Beste</button></div>
+   <p class="hint">„Beste“ kostet bei OpenAI etwa das Drei- bis Vierfache pro Bild. Zum Ausprobieren reicht „Normal“, einzelne Bilder kannst du später neu zeichnen lassen.</p>
+   <div class="acts"><button class="btn" id="go">✦ Geschichte schreiben</button></div><p class="err" id="err"></p></div>
+  <h2>Meine Geschichten</h2>
+  ${list.length?`<div class="list">${list.map(s=>`<a class="st" href="#/g/${s.id}"><div class="th" style="${s.thumb?`background-image:url(/api/story-images/${s.thumb}?v=${s.thumb_v})`:''}">${s.thumb?'':'Noch keine Bilder'}</div><b>${esc(s.title)}</b><small>${s.running?'<span class="spin sm"></span> entsteht · ':''}${s.done}/${s.total} Bilder</small></a>`).join('')}</div>`:'<p class="muted">Noch keine Geschichten.</p>'}`);
+  const anz=document.getElementById('anz'),anzo=document.getElementById('anzo');
+  anz.oninput=()=>{opt.anzahl=+anz.value;anzo.textContent=anz.value};
+  const pick=(id,key)=>document.getElementById(id).onclick=e=>{const b=e.target.closest('button');if(!b)return;opt[key]=b.dataset.v;[...b.parentNode.children].forEach(x=>x.classList.toggle('on',x===b))};
+  pick('stil','stil');pick('qual','qualitaet');
+  document.getElementById('go').onclick=async()=>{
+    const nw=document.getElementById('nw'),idee=document.getElementById('idee').value.trim(),keep=nw.innerHTML;
+    nw.innerHTML='<div class="busy"><span class="spin"></span><span>Die KI schreibt deine Geschichte … das dauert etwa eine Minute.</span></div>';
+    try{const s=await api('/api/stories','POST',{idee,...opt});location.hash='#/g/'+s.id}
+    catch(x){nw.innerHTML=keep;viewList().then(()=>{document.getElementById('idee').value=idee;document.getElementById('err').textContent=x.message})}}}
+
+/* ---------- Eine Geschichte ---------- */
+async function viewStory(id,keepScroll){
+  const y=scrollY;
+  cur=await api('/api/stories/'+id);dirty=false;render();
+  if(keepScroll)scrollTo(0,y);
+  poll()}
+const busyNow=()=>cur.running||cur.panels.some(p=>p.state==='warten'||p.state==='laeuft');
+function render(){
+  const s=cur,P=s.plan,pan=n=>s.panels.find(p=>p.nr===n)||{nr:n,state:'offen'};
+  const scenes=s.panels.filter(p=>p.nr>0),done=scenes.filter(p=>p.has_image&&(p.state==='fertig'||p.state==='warnung')).length,busy=busyNow();
+  const missing=s.panels.filter(p=>!p.has_image||p.state==='fehler').length;
+  const sheet=pan(0),lock=busy?'disabled':'';
+  const names=(P.figuren||[]).map(f=>f.name);
+  shell(`<a class="back" href="#/">‹ Alle Geschichten</a>
+  <input class="titlein" id="title" value="${esc(P.titel)}" aria-label="Titel" ${lock}>
+  <div class="bar"><div class="prog">${busy?'<span class="spin sm"></span> Bilder entstehen … ':''}${done} von ${scenes.length} Bildern fertig<i><span style="width:${scenes.length?done/scenes.length*100:0}%"></span></i></div>
+   ${busy?'<button class="btn ghost sm" id="stop">Anhalten</button>':missing?`<button class="btn sm" id="render">${done?'Fehlende Bilder zeichnen':'✦ Bilder zeichnen'}</button>`:'<a class="btn sm" href="#post" id="topost">Veröffentlichen ↓</a>'}</div>
+  ${busy?'<p class="hint" style="margin-top:-6px">Läuft auf dem Server weiter – du kannst die App schließen und später wiederkommen. Pro Bild etwa 1–2 Minuten, mit Prüfung.</p>':''}
+  <p class="err" id="err"></p>
+
+  <h2>Figuren</h2>
+  <div class="cast">${(P.figuren||[]).map((f,i)=>`<div class="fig"><input data-f="${i}" data-k="name" value="${esc(f.name)}" ${lock}><textarea data-f="${i}" data-k="aussehen" ${lock}>${esc(f.aussehen)}</textarea>
+   <details><summary>Beschreibung für die Bild-KI (englisch)</summary><textarea data-f="${i}" data-k="look_en" ${lock} style="min-height:110px">${esc(f.look_en)}</textarea></details></div>`).join('')}</div>
+  <div class="sheet"><div class="pic ${sheet.has_image?'':'empty'}" data-zoom="0" style="${sheet.has_image?`background-image:url(${img(sheet)})`:''}">${sheet.has_image?'':sheet.state==='laeuft'?'<span class="spin"></span>':esc(STATE[sheet.state]||'')}</div>
+   <div><b>Figurenblatt</b><p class="small" style="margin:2px 0 8px">Die Bild-KI zeichnet zuerst alle Figuren. Dieses Blatt ist die Vorlage für jedes Bild, damit die Figuren überall gleich aussehen.</p>
+   ${sheet.note?`<div class="note ${sheet.state==='fehler'?'bad':''}">${esc(sheet.note)}</div>`:''}
+   ${sheet.has_image&&!busy?'<button class="btn ghost sm" data-redo="0">Figurenblatt neu zeichnen</button>':''}</div></div>
+
+  <h2>Bilder</h2>
+  <div class="scenes">${(P.szenen||[]).map((z,i)=>{const n=i+1,p=pan(n);
+   const badge=p.state==='warnung'?`<div class="badge warn">${STATE.warnung}</div>`:p.state==='fehler'?`<div class="badge bad">${STATE.fehler}</div>`:(p.state==='warten'||p.state==='laeuft')&&p.has_image?`<div class="badge"><span class="spin sm"></span> ${STATE[p.state]}</div>`:'';
+   return `<div class="sc" id="sc${n}"><div class="pic ${p.has_image?'':'empty'}" data-zoom="${n}" style="${p.has_image?`background-image:url(${img(p)})`:''}"><span class="nr">${n}/${P.szenen.length}</span>${p.has_image?'':p.state==='laeuft'?'<div><span class="spin"></span><br>Wird gezeichnet …</div>':esc(STATE[p.state]||'')}${badge}</div>
+   <div><p class="inh">${esc(z.inhalt)}</p>
+    ${z.blasen.map((b,j)=>`<div class="bub"><select data-s="${n}" data-b="${j}" data-k="sprecher" ${lock}>${[...new Set([...names,b.sprecher])].map(nm=>`<option ${nm===b.sprecher?'selected':''}>${esc(nm)}</option>`).join('')}</select><textarea rows="2" data-s="${n}" data-b="${j}" data-k="text" ${lock}>${esc(b.text)}</textarea><button class="x" data-delb="${n}:${j}" aria-label="Sprechblase entfernen" ${lock}>×</button></div>`).join('')}
+    ${z.blasen.length<2&&!busy?`<button class="btn ghost sm" data-addb="${n}">+ Sprechblase</button>`:''}
+    <details><summary>Schild &amp; Bildbeschreibung</summary><label style="margin-top:8px">Schild oben links (z. B. „Damals.“)</label><input data-s="${n}" data-k="schild" value="${esc(z.schild)}" ${lock}>
+     <label>Ort</label><input data-s="${n}" data-k="ort" value="${esc(z.ort)}" ${lock}>
+     <label>Was passiert</label><input data-s="${n}" data-k="inhalt" value="${esc(z.inhalt)}" ${lock}>
+     <label>Bildbeschreibung für die Bild-KI (englisch)</label><textarea data-s="${n}" data-k="bild_en" ${lock} style="min-height:120px">${esc(z.bild_en)}</textarea></details>
+    ${p.note?`<div class="note ${p.state==='fehler'?'bad':''}">${esc(p.note)}</div>`:''}
+    ${p.hint?`<p class="small">Dein Wunsch fürs Bild: ${esc(p.hint)}</p>`:''}
+    ${!busy&&sheet.has_image?`<div class="acts" style="margin-top:10px"><button class="btn ghost sm" data-redo="${n}">${p.has_image?'Neu zeichnen':'Zeichnen'}</button><button class="btn ghost sm" data-hint="${n}">Mit Wunsch …</button></div>`:''}
+   </div></div>`}).join('')}</div>
+
+  ${!busy?`<h2>Mit KI überarbeiten</h2><div class="card"><label for="wish" style="margin-top:0">Was soll anders werden?</label>
+   <textarea id="wish" placeholder="z. B. Das Ende soll noch emotionaler sein. Oder: Mach 12 Bilder daraus. Oder: Die Tochter heißt Mia und ist Krankenschwester."></textarea>
+   <p class="hint">Bereits gezeichnete Bilder bleiben, bis du sie neu zeichnen lässt.</p>
+   <div class="acts"><button class="btn ghost" id="rewrite">✦ Geschichte überarbeiten</button></div></div>`:''}
+
+  <h2 id="post">Veröffentlichen</h2>
+  <div class="card post"><label for="cap" style="margin-top:0">Beitragstext</label>
+   <textarea id="cap" ${lock}>${esc(P.beitragstext)}</textarea>
+   <label for="tags">Hashtags</label><input id="tags" value="${esc((P.hashtags||[]).join(' '))}" ${lock}>
+   <div class="acts"><button class="btn ghost" id="copy">Text kopieren</button>
+   <button class="btn" id="share" ${done?'':'disabled'}>Bilder teilen / speichern</button></div>
+   <p class="hint">Bilder werden dabei auf das Instagram-Format 4:5 (1080 × 1350) zugeschnitten. Am Handy öffnet sich „Teilen“ – dort „Bilder sichern“ oder direkt Instagram wählen. Tipp: Bei Instagram „KI-Inhalt“ kennzeichnen.</p>
+   <p class="ok" id="okmsg"></p></div>
+  <div class="acts" style="margin-top:28px"><button class="btn warn" id="del">Geschichte löschen</button></div>`);
+  bind()}
+function markDirty(){if(dirty)return;dirty=true;const b=document.createElement('button');b.className='btn save';b.id='save';b.textContent='Änderungen speichern';b.onclick=save;document.body.appendChild(b)}
+function clearSave(){document.getElementById('save')?.remove()}
+function collect(){
+  const P=structuredClone(cur.plan);
+  P.titel=document.getElementById('title').value.trim()||P.titel;
+  app.querySelectorAll('[data-f]').forEach(el=>{P.figuren[+el.dataset.f][el.dataset.k]=el.value});
+  app.querySelectorAll('[data-s]').forEach(el=>{const z=P.szenen[+el.dataset.s-1];if(el.dataset.b!==undefined)z.blasen[+el.dataset.b][el.dataset.k]=el.value;else z[el.dataset.k]=el.value});
+  P.beitragstext=document.getElementById('cap').value;P.hashtags=document.getElementById('tags').value.split(/\s+/).filter(Boolean);
+  return P}
+async function save(){
+  try{cur=await api('/api/stories/'+cur.id,'PUT',{plan:collect()});dirty=false;clearSave();const y=scrollY;render();scrollTo(0,y)}
+  catch(x){document.getElementById('err').textContent=x.message;document.getElementById('err').scrollIntoView({block:'center'})}}
+async function saveIfDirty(){if(dirty){cur=await api('/api/stories/'+cur.id,'PUT',{plan:collect()});dirty=false;clearSave()}}
+async function startRender(body){
+  try{await saveIfDirty();cur=await api('/api/stories/'+cur.id+'/render','POST',body);const y=scrollY;render();scrollTo(0,y);poll()}
+  catch(x){const e=document.getElementById('err');e.textContent=x.message;e.scrollIntoView({block:'center'})}}
+function bind(){
+  const $=id=>document.getElementById(id),err=$('err');
+  $('render')&&($('render').onclick=()=>startRender({}));
+  $('stop')&&($('stop').onclick=async()=>{cur=await api('/api/stories/'+cur.id+'/stop','POST');render()});
+  app.querySelectorAll('[data-redo]').forEach(b=>b.onclick=()=>startRender({nrs:[+b.dataset.redo],hinweis:''}));
+  app.querySelectorAll('[data-hint]').forEach(b=>b.onclick=()=>{const t=prompt('Was soll an diesem Bild anders sein?\n(z. B. „Papa lächelt“, „Nahaufnahme vom Ärmel“)');if(t&&t.trim())startRender({nrs:[+b.dataset.hint],hinweis:t.trim()})});
+  app.querySelectorAll('[data-addb]').forEach(b=>b.onclick=()=>{const P=collect(),z=P.szenen[+b.dataset.addb-1];z.blasen.push({sprecher:P.figuren[0]?.name||'',text:''});cur.plan=P;const y=scrollY;render();scrollTo(0,y);markDirty()});
+  app.querySelectorAll('[data-delb]').forEach(b=>b.onclick=()=>{const[n,j]=b.dataset.delb.split(':').map(Number),P=collect();P.szenen[n-1].blasen.splice(j,1);cur.plan=P;const y=scrollY;render();scrollTo(0,y);markDirty()});
+  app.querySelectorAll('[data-zoom]').forEach(el=>el.onclick=()=>{const p=cur.panels.find(x=>x.nr===+el.dataset.zoom);if(!p||!p.has_image)return;$('dimg').src=img(p);$('dlg').showModal()});
+  $('rewrite')&&($('rewrite').onclick=async()=>{const w=$('wish').value.trim(),card=$('rewrite').closest('.card'),keep=card.innerHTML;
+    card.innerHTML='<div class="busy"><span class="spin"></span><span>Die KI überarbeitet die Geschichte …</span></div>';
+    try{await saveIfDirty();const m=w.match(/(\d{1,2})\s*Bilder/);cur=await api('/api/stories/'+cur.id+'/rewrite','POST',{wunsch:w,anzahl:m?+m[1]:undefined});render();scrollTo(0,0)}
+    catch(x){card.innerHTML=keep;bind();err.textContent=x.message;err.scrollIntoView({block:'center'})}});
+  $('copy').onclick=async()=>{const t=$('cap').value.trim()+'\n\n'+$('tags').value.trim();try{await navigator.clipboard.writeText(t);$('okmsg').textContent='Text kopiert ✓'}catch(e){$('cap').select();$('okmsg').textContent='Bitte markierten Text kopieren.'}};
+  $('share').onclick=shareAll;
+  $('del').onclick=async e=>{const b=e.target;if(!b.dataset.sure){b.dataset.sure=1;b.textContent='Wirklich löschen? Alle Bilder gehen verloren.';return}await api('/api/stories/'+cur.id,'DELETE');location.hash='#/'};
+}
+/* 4:5-Zuschnitt und Teilen */
+function crop(p){return new Promise((res,rej)=>{const im=new Image();im.onload=()=>{const W=1080,H=1350,c=document.createElement('canvas');c.width=W;c.height=H;
+  const r=W/H,sw=Math.min(im.width,im.height*r),sh=sw/r;c.getContext('2d').drawImage(im,(im.width-sw)/2,(im.height-sh)/2,sw,sh,0,0,W,H);c.toBlob(b=>b?res(b):rej(new Error('Bild konnte nicht erstellt werden')),'image/jpeg',.92)};im.onerror=()=>rej(new Error('Bild konnte nicht geladen werden'));im.src=img(p)})}
+async function shareAll(){
+  const ok=document.getElementById('okmsg'),btn=document.getElementById('share');
+  const list=cur.panels.filter(p=>p.nr>0&&p.has_image).sort((a,b)=>a.nr-b.nr);
+  btn.disabled=true;ok.textContent='Bilder werden vorbereitet …';
+  try{
+    const base=(cur.plan.titel||'geschichte').toLowerCase().replace(/[^a-z0-9äöüß]+/g,'-').replace(/^-|-$/g,'');
+    const files=[];for(const p of list)files.push(new File([await crop(p)],`${base}-${String(p.nr).padStart(2,'0')}.jpg`,{type:'image/jpeg'}));
+    if(navigator.canShare&&navigator.canShare({files})){try{await navigator.share({files});ok.textContent='Geteilt ✓'}catch(e){ok.textContent=e.name==='AbortError'?'':'Teilen hat nicht geklappt: '+e.message}}
+    else{for(const f of files){const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();a.remove();await new Promise(r=>setTimeout(r,350))}ok.textContent=files.length+' Bilder heruntergeladen ✓'}
+  }catch(x){ok.textContent=x.message}finally{btn.disabled=false}}
+/* Fortschritt abfragen */
+function stopPoll(){clearTimeout(timer);timer=null}
+function poll(){stopPoll();if(!cur||!busyNow())return;timer=setTimeout(async()=>{
+  if(!cur||!location.hash.startsWith('#/g/'+cur.id))return;
+  try{const s=await api('/api/stories/'+cur.id);const changed=JSON.stringify(s.panels)!==JSON.stringify(cur.panels)||s.running!==cur.running;
+    if(changed&&!dirty&&!document.activeElement?.matches('input,textarea,select')){cur=s;const y=scrollY;render();scrollTo(0,y)}else if(changed){cur.panels=s.panels;cur.running=s.running}}catch(e){}
+  poll()},4000)}
+app.addEventListener('input',e=>{if(cur&&e.target.matches('[data-f],[data-s],#title,#cap,#tags'))markDirty()});
+app.addEventListener('change',e=>{if(cur&&e.target.matches('select'))markDirty()});
+document.getElementById('dclose').onclick=()=>document.getElementById('dlg').close();
+document.getElementById('dlg').onclick=e=>{if(e.target.id==='dlg')e.target.close()};
+addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
+async function route(){
+  clearSave();dirty=false;
+  const m=location.hash.match(/^#\/g\/(\d+)/);
+  try{if(m)await viewStory(+m[1]);else{cur=null;await viewList()}}
+  catch(x){shell(`<p class="err">${esc(x.message)}</p><a class="btn ghost" href="#/">Zur Übersicht</a>`)}}
+(async()=>{try{me=await api('/api/me');styles=await api('/api/stories/styles')}catch(e){return}addEventListener('hashchange',route);route()})();
+</script>
+</body>
+</html>

@@ -776,4 +776,4 @@ async function testImage(cfg) {
   return { ok: true, models: img };
 }
 
-module.exports = { layouts, mounts, design, test, refreshTrends, listModels, photo, photoPrompt, sceneLayout, checkPhoto, testImage, conflicts, normalize, describe, AiError, CATALOG };
+module.exports = { request, layouts, mounts, design, test, refreshTrends, listModels, photo, photoPrompt, sceneLayout, checkPhoto, testImage, conflicts, normalize, describe, AiError, CATALOG };

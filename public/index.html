@@ -112,10 +112,11 @@ const IC={
   p:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2h7.5A2.5 2.5 0 0 1 21 9.5v8A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"/></svg>',
   t:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.8a3.3 3.3 0 0 1 0 6.4M18.2 14.8c1.7.7 2.8 2.4 3.3 5.2"/></svg>',
   a:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>',
+  g:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="13" height="16" rx="2.5"/><path d="M19 6.5v11M21.5 8.5v7"/><path d="M6 14.5l2.5-3 2 2.2 1.5-1.7 2 2.5"/></svg>',
   k:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="4"/><path d="M4 20.5c1.2-4 4.3-6 8-6s6.8 2 8 6"/></svg>'};
 const logoH=`<a class="logo" href="#/">${IC.logo}<span>Badplaner<small>Planung &amp; VR-Beratung</small></span></a>`;
 function shell(active,inner){
-  const tabs=[['p','#/','Projekte'],...(me.role==='admin'?[['t','#/team','Team'],['a','#/ki','KI']]:[]),['k','#/konto','Konto']];
+  const tabs=[['p','#/','Projekte'],['g','/geschichten.html','Geschichten'],...(me.role==='admin'?[['t','#/team','Team'],['a','#/ki','KI']]:[]),['k','#/konto','Konto']];
   const links=()=>tabs.map(([k,h,l])=>`<a href="${h}" class="${active===k?'on':''}">${IC[k]}<span>${l}</span></a>`).join('');
   document.body.classList.add('hastabs');
   app.innerHTML=`<header class="appbar">${logoH}<nav class="topnav2">${links()}</nav></header>${inner}<p class="muted" style="font-size:12.5px;margin-top:36px;text-align:center">Version ${esc(me.version||'?')}</p><nav class="tabbar">${links()}</nav>`}
