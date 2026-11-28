@@ -41,7 +41,7 @@
     });
     left = Math.max(0, left); right = Math.min(m.len, right);
     // Nische hinter einer Wand im Raum (T-Lösung): Breite = so weit die Wand davor reicht
-    if (front) { const fr = { lo: Math.min(...front.lp.map(q => q[0])), hi: Math.max(...front.lp.map(q => q[0])) };
+    if (front && !opt.noClip) { const fr = { lo: Math.min(...front.lp.map(q => q[0])), hi: Math.max(...front.lp.map(q => q[0])) };
       const a = Math.max(left, fr.lo), b = Math.min(right, fr.hi); if (b - a >= .7) { if (a > left) lo = null; if (b < right) ro = null; left = a; right = b; } }
     // Keine Wand davor: Tiefe aus seitlicher Trennwand (Nische zwischen Trennwand und Wand)
     if (d == null) {
