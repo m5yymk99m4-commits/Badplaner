@@ -79,6 +79,17 @@ details summary{cursor:pointer;color:var(--mute);font-size:13px;font-weight:600;
 .save{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 84px);z-index:50;box-shadow:0 8px 30px rgba(0,0,0,.25)}
 @media(min-width:641px){.save{bottom:24px}}
 .post textarea{min-height:120px}
+/* Automatik */
+.auto{margin-bottom:16px}
+.autohead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.sw{position:relative;margin:0;flex:none;width:52px;height:32px}
+.sw input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer;z-index:1}
+.sw span{position:absolute;inset:0;border-radius:16px;background:var(--beigeb);transition:background .2s}
+.sw span::after{content:"";position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
+.sw input:checked+span{background:var(--pet)}
+.sw input:checked+span::after{transform:translateX(20px)}
+.times{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.tagauto{display:inline-block;font-size:11px;font-weight:700;color:var(--pet);background:var(--petbg);padding:1px 6px;border-radius:8px}
 dialog{border:0;padding:0;background:transparent;max-width:min(92vw,560px)}
 dialog::backdrop{background:rgba(0,0,0,.8)}
 dialog img{display:block;width:100%;border-radius:12px}
@@ -120,8 +131,9 @@ const STATE={offen:'Noch kein Bild',warten:'Wartet …',laeuft:'Wird gezeichnet 
 let opt={stil:'comic',anzahl:10,qualitaet:'medium'};
 async function viewList(){
   stopPoll();
-  const list=await api('/api/stories');
+  const [list,au]=await Promise.all([api('/api/stories'),api('/api/stories/auto')]);
   shell(`<h1>Bildgeschichten</h1><p class="muted" style="margin-top:0">Die KI schreibt eine kurze Geschichte und zeichnet sie Bild für Bild – fertig für ein Instagram-Karussell.</p>
+  ${autoCard(au)}
   <div class="card" id="nw"><h2 style="margin-top:0">Neue Geschichte</h2>
    <label for="idee">Idee <span class="muted" style="font-weight:500">(leer lassen = KI überrascht dich)</span></label>
    <textarea id="idee" placeholder="z. B. Oma backt jeden Sonntag denselben Kuchen – erst nach ihrem 80. Geburtstag erfährt die Enkelin, warum."></textarea>
@@ -131,16 +143,48 @@ async function viewList(){
    <p class="hint">„Beste“ kostet bei OpenAI etwa das Drei- bis Vierfache pro Bild. Zum Ausprobieren reicht „Normal“, einzelne Bilder kannst du später neu zeichnen lassen.</p>
    <div class="acts"><button class="btn" id="go">✦ Geschichte schreiben</button></div><p class="err" id="err"></p></div>
   <h2>Meine Geschichten</h2>
-  ${list.length?`<div class="list">${list.map(s=>`<a class="st" href="#/g/${s.id}"><div class="th" style="${s.thumb?`background-image:url(/api/story-images/${s.thumb}?v=${s.thumb_v})`:''}">${s.thumb?'':'Noch keine Bilder'}</div><b>${esc(s.title)}</b><small>${s.running?'<span class="spin sm"></span> entsteht · ':''}${s.done}/${s.total} Bilder</small></a>`).join('')}</div>`:'<p class="muted">Noch keine Geschichten.</p>'}`);
+  ${list.length?`<div class="list">${list.map(s=>`<a class="st" href="#/g/${s.id}"><div class="th" style="${s.thumb?`background-image:url(/api/story-images/${s.thumb}?v=${s.thumb_v})`:''}">${s.thumb?'':'Noch keine Bilder'}</div><b>${esc(s.title)}</b><small>${s.auto?'<span class="tagauto">Auto</span> ':''}${s.running?'<span class="spin sm"></span> entsteht · ':''}${s.done}/${s.total} Bilder</small></a>`).join('')}</div>`:'<p class="muted">Noch keine Geschichten.</p>'}`);
   const anz=document.getElementById('anz'),anzo=document.getElementById('anzo');
   anz.oninput=()=>{opt.anzahl=+anz.value;anzo.textContent=anz.value};
   const pick=(id,key)=>document.getElementById(id).onclick=e=>{const b=e.target.closest('button');if(!b)return;opt[key]=b.dataset.v;[...b.parentNode.children].forEach(x=>x.classList.toggle('on',x===b))};
-  pick('stil','stil');pick('qual','qualitaet');
+  pick('stil','stil');pick('qual','qualitaet');bindAuto(au);
   document.getElementById('go').onclick=async()=>{
     const nw=document.getElementById('nw'),idee=document.getElementById('idee').value.trim(),keep=nw.innerHTML;
     nw.innerHTML='<div class="busy"><span class="spin"></span><span>Die KI schreibt deine Geschichte … das dauert etwa eine Minute.</span></div>';
     try{const s=await api('/api/stories','POST',{idee,...opt});location.hash='#/g/'+s.id}
     catch(x){nw.innerHTML=keep;viewList().then(()=>{document.getElementById('idee').value=idee;document.getElementById('err').textContent=x.message})}}}
+
+/* ---------- Automatik ---------- */
+function autoCard(a){
+  return `<div class="card auto" id="auto"><div class="autohead"><div><h2 style="margin:0">Automatisch jeden Tag</h2>
+   <p class="small" style="margin:4px 0 0">${a.an?`An · ${a.proTag} ${a.proTag===1?'Geschichte':'Geschichten'} pro Tag, nächste ${esc(a.naechste)}`:'Aus'}${a.bilderHeute?` · heute ${a.bilderHeute} von ${a.maxBilder} Bildern`:''}</p></div>
+   <label class="sw"><input type="checkbox" id="aon" ${a.an?'checked':''} aria-label="Automatik an"><span></span></label></div>
+   ${a.letzte?`<p class="small" style="margin:10px 0 0">Zuletzt: <a href="#/g/${a.letzte.id}">${esc(a.letzte.titel)}</a></p>`:''}
+   ${a.fehler?`<div class="note bad">${esc(a.fehler)}</div>`:''}
+   <details id="adet"><summary>Einstellungen</summary>
+    <label>Geschichten pro Tag</label><div class="chips" id="apro">${[1,2,3,4].map(n=>`<button type="button" data-v="${n}" class="${n===a.proTag?'on':''}">${n}</button>`).join('')}</div>
+    <label>Uhrzeiten</label><div class="times" id="atimes">${a.zeiten.slice(0,a.proTag).map(t=>`<input type="time" value="${t}">`).join('')}</div>
+    <label>Bilder pro Geschichte</label><div class="row"><input type="range" id="aanz" min="4" max="15" value="${a.anzahl}"><output id="aanzo">${a.anzahl}</output></div>
+    <label>Zeichenstil</label><div class="chips" id="astil">${styles.map(x=>`<button type="button" data-v="${x.id}" class="${x.id===a.stil?'on':''}">${esc(x.name)}</button>`).join('')}</div>
+    <label>Bildqualität</label><div class="chips" id="aqual"><button type="button" data-v="medium" class="${a.qualitaet==='medium'?'on':''}">Normal · günstig</button><button type="button" data-v="high" class="${a.qualitaet==='high'?'on':''}">Beste</button></div>
+    <label for="athem">Themen-Wünsche <span class="muted" style="font-weight:500">(optional)</span></label>
+    <textarea id="athem" placeholder="z. B. Großeltern und Enkel, Weihnachten, Hunde, Freundschaft im Alter">${esc(a.themen)}</textarea>
+    <label for="amax">Höchstens Bilder pro Tag</label><input id="amax" type="number" min="5" max="200" value="${a.maxBilder}" inputmode="numeric">
+    <p class="hint">Schutz vor zu hohen Kosten: Ist das Limit erreicht, wird an dem Tag keine weitere Geschichte begonnen.</p>
+    <div class="acts"><button class="btn" id="asave">Speichern</button></div></details>
+   <div class="acts"><button class="btn ghost sm" id="anow">✦ Jetzt eine erstellen</button></div><p class="err" id="aerr"></p></div>`}
+function bindAuto(a){
+  const $=id=>document.getElementById(id),st={proTag:a.proTag,stil:a.stil,qualitaet:a.qualitaet};
+  const chips=(id,k,num)=>$(id).onclick=e=>{const b=e.target.closest('button');if(!b)return;st[k]=num?+b.dataset.v:b.dataset.v;[...b.parentNode.children].forEach(x=>x.classList.toggle('on',x===b));
+    if(k==='proTag'){const cur=[...$('atimes').querySelectorAll('input')].map(i=>i.value),def=['07:00','15:00','11:00','19:00'];
+      while(cur.length<st.proTag)cur.push(def.find(t=>!cur.includes(t)));$('atimes').innerHTML=cur.slice(0,st.proTag).map(t=>`<input type="time" value="${t}">`).join('')}};
+  chips('apro','proTag',true);chips('astil','stil');chips('aqual','qualitaet');
+  $('aanz').oninput=()=>$('aanzo').textContent=$('aanz').value;
+  const put=async body=>{try{await api('/api/stories/auto','PUT',body);await viewList()}catch(x){$('aerr').textContent=x.message}};
+  $('aon').onchange=()=>put({an:$('aon').checked});
+  $('asave').onclick=()=>put({an:$('aon').checked,...st,zeiten:[...$('atimes').querySelectorAll('input')].map(i=>i.value).filter(Boolean),anzahl:+$('aanz').value,themen:$('athem').value,maxBilder:+$('amax').value});
+  $('anow').onclick=async()=>{const b=$('anow');b.disabled=true;b.innerHTML='<span class="spin sm"></span> Die KI denkt sich eine Geschichte aus …';
+    try{const r=await api('/api/stories/auto/now','POST');location.hash='#/g/'+r.id}catch(x){$('aerr').textContent=x.message;b.disabled=false;b.textContent='✦ Jetzt eine erstellen'}}}
 
 /* ---------- Eine Geschichte ---------- */
 async function viewStory(id,keepScroll){

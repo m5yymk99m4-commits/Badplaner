@@ -15,7 +15,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const COOKIE_SECURE = process.env.COOKIE_SECURE === '1'; // auf 1 setzen, sobald HTTPS läuft
 const TRUST_PROXY = process.env.TRUST_PROXY === '1'; // 1 = hinter Caddy, echte Besucher-IP aus X-Forwarded-For
 const SESSION_DAYS = 30;
-const APP_VERSION = '2026-11-28.26';
+const APP_VERSION = '2026-11-28.27';
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 const db = new DatabaseSync(path.join(DATA_DIR, 'badplaner.db'));
@@ -477,7 +477,7 @@ route('DELETE', '/api/photos/:id', (req, res, u, p) => {
 });
 
 // Bildgeschichten (Instagram-Karussells) – eigener Teil in story.js
-require('./story').register({ route, db, HttpError, readJson, needUser, str, aiConfig, DATA_DIR });
+require('./story').register({ route, db, HttpError, readJson, needUser, str, aiConfig, DATA_DIR, getSetting, setSetting });
 
 // ---------- Statische Dateien ----------
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',

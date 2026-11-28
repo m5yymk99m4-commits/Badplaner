@@ -50,7 +50,7 @@ const TOOL = {
   } },
 };
 
-function register({ route, db, HttpError, readJson, needUser, str, aiConfig, DATA_DIR }) {
+function register({ route, db, HttpError, readJson, needUser, str, aiConfig, DATA_DIR, getSetting, setSetting }) {
   db.exec(`
 CREATE TABLE IF NOT EXISTS stories (
   id INTEGER PRIMARY KEY,
@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS story_panels (
   fs.mkdirSync(DIR, { recursive: true });
   // Nach einem Neustart abgebrochene Bilder wieder einreihen
   db.prepare(`UPDATE story_panels SET state = 'warten' WHERE state = 'laeuft'`).run();
+  try { db.exec('ALTER TABLE stories ADD COLUMN auto INTEGER NOT NULL DEFAULT 0'); } catch { /* existiert schon */ }
 
   const getStory = id => { const s = db.prepare('SELECT * FROM stories WHERE id = ?').get(id); if (!s) throw new HttpError(404, 'Geschichte nicht gefunden'); return s; };
   const panels = id => db.prepare('SELECT id, nr, state, note, hint, version, file IS NOT NULL AS has_image FROM story_panels WHERE story_id = ? ORDER BY nr').all(id);
@@ -92,14 +93,16 @@ CREATE TABLE IF NOT EXISTS story_panels (
   };
 
   // ---------- Geschichte schreiben ----------
-  async function write(cfg, { idee, anzahl, stil, vorher, wunsch }) {
+  async function write(cfg, { idee, anzahl, stil, vorher, wunsch, themen }) {
     if (!cfg.key) throw new AiError(400, 'Es ist noch kein KI-Schlüssel (Anthropic) hinterlegt. Ein Admin kann ihn unter „KI“ eintragen.');
     let text;
     if (vorher) {
       text = `Hier ist die bisherige Geschichte als JSON:\n${JSON.stringify(vorher)}\n\nÄnderungswunsch: ${wunsch || 'Mach sie insgesamt stärker.'}\n\nÜberarbeite die Geschichte entsprechend. Behalte alles, was nicht geändert werden soll, möglichst genau bei (vor allem die Figurenbeschreibungen). Anzahl der Bilder: ${anzahl}.`;
     } else {
       text = `Schreibe eine Bildgeschichte mit genau ${anzahl} Bildern.\nZeichenstil: ${STYLES[stil].name}.\n` +
-        (idee ? `Idee bzw. Thema: ${idee}` : 'Thema: Denk dir selbst eine berührende Familiengeschichte aus, die nicht der Geschichte vom alten Anzug gleicht.');
+        (idee ? `Idee bzw. Thema: ${idee}` : 'Thema: Denk dir selbst eine neue, berührende Geschichte aus (Familie, Freundschaft, Nachbarn, Großeltern, Haustiere, kleine Gesten im Alltag). Sie soll nicht der Geschichte vom alten Anzug gleichen.' + (themen ? `\nBevorzugte Themen: ${themen}` : ''));
+      const alt = db.prepare('SELECT title FROM stories ORDER BY id DESC LIMIT 40').all().map(r => r.title);
+      if (!idee && alt.length) text += `\nDiese Geschichten gibt es schon – nimm einen deutlich anderen Gegenstand, Ort und eine andere Wendung:\n- ${alt.join('\n- ')}`;
     }
     const msgs = [{ role: 'user', content: text }];
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -285,7 +288,7 @@ Unwichtig: Hintergrunddetails, Licht, kleine Stilunterschiede. Speichere mit „
 
   route('GET', '/api/stories', (req, res, u) => {
     needUser(u);
-    return db.prepare(`SELECT s.id, s.title, s.style, s.updated_at,
+    return db.prepare(`SELECT s.id, s.title, s.style, s.updated_at, s.auto,
         (SELECT COUNT(*) FROM story_panels p WHERE p.story_id = s.id AND p.nr > 0) AS total,
         (SELECT COUNT(*) FROM story_panels p WHERE p.story_id = s.id AND p.nr > 0 AND p.state IN ('fertig','warnung')) AS done,
         (SELECT p.id FROM story_panels p WHERE p.story_id = s.id AND p.nr > 0 AND p.file IS NOT NULL ORDER BY p.nr LIMIT 1) AS thumb,
@@ -360,6 +363,93 @@ Unwichtig: Hintergrunddetails, Licht, kleine Stilunterschiede. Speichere mit „
     if (!f || !fs.existsSync(f)) throw new HttpError(404, 'Bild nicht gefunden');
     res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, max-age=31536000, immutable' });
     fs.createReadStream(f).pipe(res);
+  });
+
+  // ---------- Automatik: jeden Tag neue Geschichten ----------
+  const TZ = 'Europe/Berlin';
+  const AUTO_DEF = { an: true, proTag: 2, zeiten: ['07:00', '15:00'], stil: 'comic', anzahl: 10, qualitaet: 'medium', themen: '', maxBilder: 40 };
+  const autoCfg = () => { let c = {}; try { c = JSON.parse(getSetting('story_auto', '{}')); } catch {} return { ...AUTO_DEF, ...c }; };
+  const autoState = () => { try { return JSON.parse(getSetting('story_auto_state', '{}')); } catch { return {}; } };
+  const saveState = st => setSetting('story_auto_state', JSON.stringify(st));
+  const berlin = (d = new Date()) => { const f = new Intl.DateTimeFormat('sv-SE', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(d); return { day: f.slice(0, 10), hm: f.slice(11, 16) }; };
+  const imagesToday = () => { const st = autoState(); return st.day === berlin().day ? st.bilder || 0 : 0; };
+  let autoBusy = false;
+  async function autoCreate(slotKey) {
+    const c = autoCfg(), cfgAi = aiConfig();
+    if (!cfgAi.key || !cfgAi.openaiKey) throw new Error('KI-Schlüssel fehlen (Anthropic und OpenAI unter „KI“).');
+    if (imagesToday() + c.anzahl + 1 > c.maxBilder) throw new Error(`Tageslimit von ${c.maxBilder} Bildern erreicht.`);
+    const plan = await write(cfgAi, { idee: '', anzahl: c.anzahl, stil: c.stil, themen: c.themen });
+    const id = Number(db.prepare('INSERT INTO stories (title, idea, style, quality, plan_json, auto) VALUES (?, ?, ?, ?, ?, 1)')
+      .run(plan.titel, 'Automatisch erstellt', c.stil, c.qualitaet, JSON.stringify(plan)).lastInsertRowid);
+    syncPanels(id, plan);
+    db.prepare(`UPDATE story_panels SET state = 'warten' WHERE story_id = ?`).run(id);
+    const st = autoState(), today = berlin().day;
+    if (st.day !== today) { st.day = today; st.bilder = 0; }
+    st.bilder = (st.bilder || 0) + plan.szenen.length + 1;
+    if (slotKey) st.done = [...(st.done || []).filter(k => k.slice(0, 10) >= today), slotKey];
+    st.letzte = { id, titel: plan.titel, at: new Date().toISOString() }; st.fehler = '';
+    saveState(st);
+    console.log(`Automatisch neue Geschichte: ${plan.titel} (#${id})`);
+    run(id);
+    return id;
+  }
+  async function autoTick() {
+    if (autoBusy) return;
+    const c = autoCfg(); if (!c.an) return;
+    const now = berlin(), st = autoState();
+    const slots = c.zeiten.slice(0, c.proTag);
+    for (let i = 0; i < slots.length; i++) {
+      const key = `${now.day}#${i}`;
+      if (now.hm < slots[i] || (st.done || []).includes(key)) continue;
+      // nicht nachholen, wenn der Zeitpunkt schon über 3 Stunden vorbei ist (z. B. nach Server-Ausfall)
+      const [h, m] = slots[i].split(':').map(Number), [nh, nm] = now.hm.split(':').map(Number);
+      if ((nh * 60 + nm) - (h * 60 + m) > 180) { st.done = [...(st.done || []), key]; saveState(st); continue; }
+      const tries = (st.versuche?.[key] || 0);
+      if (tries >= 3) continue;
+      autoBusy = true;
+      try { await autoCreate(key); }
+      catch (e) {
+        const s2 = autoState(); s2.versuche = { ...(s2.versuche || {}), [key]: tries + 1 }; s2.fehler = `${new Date().toLocaleString('de-DE', { timeZone: TZ })}: ${e.message}`;
+        if (tries + 1 >= 3) s2.done = [...(s2.done || []), key];
+        saveState(s2); console.warn('Automatische Geschichte fehlgeschlagen:', e.message);
+      } finally { autoBusy = false; }
+      return; // höchstens eine pro Durchlauf
+    }
+  }
+  setTimeout(() => autoTick().catch(() => {}), 20000).unref();
+  setInterval(() => autoTick().catch(() => {}), 5 * 60000).unref();
+
+  route('GET', '/api/stories/auto', (req, res, u) => {
+    needUser(u);
+    const c = autoCfg(), st = autoState(), now = berlin();
+    const slots = c.zeiten.slice(0, c.proTag);
+    const next = slots.find((t, i) => t > now.hm && !(st.done || []).includes(`${now.day}#${i}`));
+    return { ...c, letzte: st.letzte || null, fehler: st.fehler || '', bilderHeute: imagesToday(), naechste: next ? `heute ${next} Uhr` : slots.length ? `morgen ${slots[0]} Uhr` : '' };
+  });
+  route('PUT', '/api/stories/auto', async (req, res, u) => {
+    needUser(u);
+    const b = await readJson(req), c = autoCfg();
+    const times = Array.isArray(b.zeiten) ? b.zeiten.map(String).filter(t => /^([01]\d|2[0-3]):[0-5]\d$/.test(t)).sort() : c.zeiten;
+    const next = {
+      an: typeof b.an === 'boolean' ? b.an : c.an,
+      proTag: Math.min(Math.max(Math.round(Number(b.proTag) || c.proTag), 1), 4),
+      zeiten: times.length ? times.slice(0, 4) : c.zeiten,
+      stil: STYLES[b.stil] ? b.stil : c.stil,
+      anzahl: Math.min(Math.max(Math.round(Number(b.anzahl) || c.anzahl), 4), 15),
+      qualitaet: ['medium', 'high'].includes(b.qualitaet) ? b.qualitaet : c.qualitaet,
+      themen: typeof b.themen === 'string' ? b.themen.trim().slice(0, 1000) : c.themen,
+      maxBilder: Math.min(Math.max(Math.round(Number(b.maxBilder) || c.maxBilder), 5), 200),
+    };
+    while (next.zeiten.length < next.proTag) next.zeiten.push(['07:00', '15:00', '11:00', '19:00'].find(t => !next.zeiten.includes(t)));
+    next.zeiten.sort();
+    setSetting('story_auto', JSON.stringify(next));
+    return next;
+  });
+  route('POST', '/api/stories/auto/now', async (req, res, u) => {
+    needUser(u);
+    if (autoBusy) throw new HttpError(429, 'Es wird gerade schon eine Geschichte geschrieben.');
+    autoBusy = true;
+    try { return { id: await autoCreate(null) }; } catch (e) { throw new HttpError(e.status || 400, e.message); } finally { autoBusy = false; }
   });
 
   return { STYLES, scenePrompt, sheetPrompt, clean };
