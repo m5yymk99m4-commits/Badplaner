@@ -165,6 +165,7 @@ details.all summary{cursor:pointer;font-weight:600;color:var(--pet);min-height:4
 .kiin2{padding:12px 14px 14px;display:flex;flex-direction:column;gap:6px;flex:1}
 .kiin2 b{font-size:17px;letter-spacing:-.01em}.kiin2 p{margin:0;font-size:14px}
 .kitrend{color:var(--mute)}.kitrend span{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--brass);margin-right:6px}
+.kiinfo{margin:10px 0 0;padding:9px 12px;border-radius:10px;background:var(--petbg);color:var(--pet);font-weight:600;font-size:14px;animation:kiflash 1.2s ease-out}@keyframes kiflash{0%{background:var(--pet);color:#fff}100%{background:var(--petbg)}}
 .kibest{position:absolute;right:10px;top:10px;background:var(--brass);color:#fff;font-size:12px;font-weight:700;padding:4px 9px;border-radius:999px}
 .kipros,.kicons{margin:2px 0 0;padding:0;list-style:none;font-size:13.5px;display:grid;gap:3px}.kipros li::before{content:'✓ ';color:var(--pet);font-weight:700}.kicons li{color:light-dark(#8a5a12,#e3c58c)}.kicons li::before{content:'! ';font-weight:700}
 .kigood{color:var(--pet)!important;font-weight:600;font-size:13px!important}
@@ -218,8 +219,8 @@ details.all summary{cursor:pointer;font-weight:600;color:var(--pet);min-height:4
 <div class="viewer" id="viewer"><div class="bar"><span id="vinfo">KI-Foto</span><button class="close" id="vclose">✕ Schließen</button></div><img id="vimg" alt="KI-Foto des geplanten Bades"><p class="foot">Zum Speichern lange auf das Foto drücken. KI-Fotos sind eine Visualisierung, Details können leicht abweichen.</p></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="/geo.js?v=19"></script>
-<script src="/layout.js?v=19"></script>
+<script src="/geo.js?v=20"></script>
+<script src="/layout.js?v=20"></script>
 <script>
 {
 /* ================= Katalog (Beispielpreise) ================= */
@@ -872,7 +873,7 @@ pane.addEventListener('click',e=>{
   const it=S.items.find(x=>x.id===sel),a=e.target.closest('[data-act]'),k=e.target.closest('[data-k]'),ad=e.target.closest('[data-add]'),pick=e.target.closest('[data-pick]');
   const cat=e.target.closest('[data-cat]'),addv=e.target.closest('[data-addv]'),dl=e.target.closest('[data-delid]');
   const kc=e.target.closest('[data-kichip]'),ka=e.target.closest('[data-kiact]');
-  if(kc){const v=kc.dataset.kichip;kiChips=kiChips.includes(v)?kiChips.filter(x=>x!==v):[...kiChips,v];kc.classList.toggle('on');return}
+  if(kc){const v=kc.dataset.kichip;kiChips=kiChips.includes(v)?kiChips.filter(x=>x!==v):[...kiChips,v];kc.classList.toggle('on');kiShown=[];const rb=document.querySelector('[data-kiact=run]');if(rb)rb.textContent='Vorschläge berechnen';return}
   if(ka){kiAction(ka.dataset.kiact,+ka.dataset.i);return}
   if(dl){S.items=S.items.filter(i=>i.id!==+dl.dataset.delid);if(sel===+dl.dataset.delid)sel=null;fixItems();save();build();render();return}
   if(cat){curCat=curCat===cat.dataset.cat?null:cat.dataset.cat;render();return}
@@ -911,7 +912,7 @@ document.getElementById('steps').addEventListener('click',e=>{const b=e.target.c
 /* ================= KI-Ideen: Aufteilungs-Vorschläge für den Grundriss ================= */
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const KICHIPS=['Walk-in-Dusche','Badewanne','Dusche und Wanne','WC nicht vom Eingang sichtbar','Doppelwaschtisch','Dusch-WC','Waschmaschine','Viel Stauraum','Barrierefrei','Möglichst günstig'];
-let kiChips=[],kiWish='',kiRes=null,kiBusy=false,kiErr='',kiUndo=null,kiApplied=null,kiT0=0,kiTick=0;
+let kiShown=[],kiInfo='',kiChips=[],kiWish='',kiRes=null,kiBusy=false,kiErr='',kiUndo=null,kiApplied=null,kiT0=0,kiTick=0;
 try{const r=JSON.parse(localStorage.getItem('ki-res-'+(VID||'local'))||'null');if(r&&Array.isArray(r.list)&&r.list.every(x=>x.pros))kiRes=r}catch(e){}
 const kiKonzeptIcon={'Wanne + Dusche':'◫','T-Lösung':'⊥','WC-Nische':'▯','Raumteiler':'⇹','Nasszone':'≋','Freistehende Wanne':'◯','Klassisch':'□','Eigene Idee':'✦'};
 function thumbOf(plan){const keep=S,ks=sel,kw=selWall,kc=selCorner;S={...S,items:plan.items};sel=selWall=selCorner=null;let svg='';try{svg=planSVG({})}finally{S=keep;sel=ks;selWall=kw;selCorner=kc}
@@ -920,7 +921,7 @@ function kiView(){
   let h=`<div class="kihead"><span class="kibadge">✦</span><div><h2>Planungs-Assistent</h2><p class="lead">Rechnet für genau diesen Grundriss hunderte Anordnungen durch – Ecke, T-Lösung, Raumteiler, Nasszone, WC-Nische, Wanne – prüft jede mit echten Maßen und zeigt die besten. Dauert nur einen Moment.</p></div></div>
     <div class="kicard"><p class="kilab">Was ist dem Kunden wichtig? <span>optional</span></p><div class="kichips">${KICHIPS.map(c=>`<button data-kichip="${c}" class="${kiChips.includes(c)?'on':''}">${c}</button>`).join('')}</div>
     <input id="kiwish" class="kiin" placeholder="Weitere Wünsche, z. B. „mit Badewanne“" value="${esc(kiWish)}">
-    <button class="btn big" data-kiact="run" ${kiBusy?'disabled':''}>${kiBusy?'Rechnet …':kiRes?'Neu berechnen':'Vorschläge berechnen'}</button>
+    <button class="btn big" data-kiact="run" ${kiBusy?'disabled':''}>${kiBusy?'Rechnet …':kiRes&&kiRes.list.length?'Andere Varianten zeigen':'Vorschläge berechnen'}</button>${kiRes&&kiShown.length&&!kiBusy?`<p class="small" style="margin:8px 0 0;text-align:center"><button class="linkbtn" data-kiact="fresh">Wieder die besten zeigen</button></p>`:''}${kiInfo?`<p class="kiinfo">${esc(kiInfo)}</p>`:''}
     <p class="small" style="margin:8px 0 0">Tür, Fenster und selbst gezeichnete Wände bleiben fest. Fliesen und Farben bleiben erhalten.</p>${kiErr?`<p class="kierr">${esc(kiErr)}</p>`:''}</div>`;
   if(kiUndo)h+=`<div class="kiok"><span>✓ „${esc(kiApplied)}“ übernommen.</span><span><button class="btn ghost sm" data-kiact="undo">Rückgängig</button><button class="btn sm" data-act="go3">Weiter: Einrichten</button></span></div>`;
   if(kiRes&&kiRes.list.length){h+=`<h2>${kiRes.list.length} Vorschläge – der beste zuerst</h2><div class="kigrid">${kiRes.list.map((v,i)=>`<article class="kiv">
@@ -936,10 +937,15 @@ function kiView(){
 function kiApply(i){const v=kiRes.list[i];if(!v)return;kiUndo={items:JSON.parse(JSON.stringify(S.items)),nid:S.nid};kiApplied=v.name;
   S.items=JSON.parse(JSON.stringify(v.plan.items));S.items.forEach(it=>{const t=T[it.type];if(!t)return;Object.entries(t.opts||{}).forEach(([k,o])=>{if(it[k]==null)it[k]=o.def});if(t.arms&&!it.arm)it.arm=t.arms[0].id});S.items=S.items.filter(it=>T[it.type]);S.nid=Math.max(v.plan.nid||1,...S.items.map(x=>x.id+1));sel=null;fixItems();save();build()}
 async function kiAction(a,i){
-  if(a==='run'){if(kiBusy)return;const wi=document.getElementById('kiwish');kiWish=wi?wi.value:'';kiBusy=true;kiErr='';render();
-    setTimeout(()=>{try{fitShowers();const list=LAYOUT.generate({pts:S.pts,items:S.items.filter(x=>['tu','fe'].includes(x.type)||(x.type==='fw'&&!x.ki))},{chips:kiChips,text:kiWish});
-      kiRes={list,at:Date.now()};try{localStorage.setItem('ki-res-'+(VID||'local'),JSON.stringify(kiRes))}catch(e){}}catch(e){kiErr='Fehler bei der Berechnung: '+e.message}
-      kiBusy=false;if(tab==='ki'){render();const g=document.querySelector('.kigrid');if(g)g.scrollIntoView({behavior:'smooth',block:'start'})}},30);return}
+  if(a==='run'||a==='fresh'){if(kiBusy)return;const wi=document.getElementById('kiwish'),nw=wi?wi.value:'';if(nw!==kiWish||a==='fresh')kiShown=[];kiWish=nw;kiBusy=true;kiErr='';kiInfo='';render();
+    setTimeout(()=>{const t0=performance.now();try{fitShowers();const base={pts:S.pts,items:S.items.filter(x=>['tu','fe'].includes(x.type)||(x.type==='fw'&&!x.ki))},w={chips:kiChips,text:kiWish};
+      let list=LAYOUT.generate(base,w,{exclude:kiShown}),again=false;
+      if(!list.length&&kiShown.length){kiShown=[];list=LAYOUT.generate(base,w);again=true}
+      const first=!kiShown.length;kiShown=kiShown.concat(list.map(x=>x.sig));kiRes={list,at:Date.now()};
+      const sec=((performance.now()-t0)/1000).toFixed(1).replace('.',',');
+      kiInfo=!list.length?'':again?`Keine weiteren Varianten – wieder die besten ${list.length} (${sec} s).`:first?`✓ ${list.length} Vorschläge berechnet (${sec} s).`:`✓ ${list.length} weitere Varianten berechnet (${sec} s).`;
+      try{localStorage.setItem('ki-res-'+(VID||'local'),JSON.stringify(kiRes))}catch(e){}}catch(e){kiErr='Fehler bei der Berechnung: '+e.message}
+      kiBusy=false;if(tab==='ki'){render();const g=document.querySelector('.kiinfo')||document.querySelector('.kierr');if(g)g.scrollIntoView({behavior:'smooth',block:'center'})}},40);return}
   if(a==='apply'){kiApply(i);render();window.scrollTo({top:0,behavior:'smooth'});return}
   if(a==='look'){kiApply(i);render();open3d();if(mode!=='orbit')setMode('orbit');return}
   if(a==='undo'&&kiUndo){S.items=kiUndo.items;S.nid=kiUndo.nid;kiUndo=null;kiApplied=null;sel=null;fixItems();save();build();render()}}

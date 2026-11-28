@@ -316,17 +316,20 @@
       placeExtras(c, wish); const e = evaluate(c, wish); if (e && (!best || e.score < best.e.score)) best = { ctx: c, e }; });
     return best;
   }
-  function generate(base, wishIn) {
-    const wish = parseWish(wishIn || {});
-    let out = run(base, wish);
-    if (out.length < 2 && !wish.barrierefrei) { const more = run(base, { ...wish, small: true }); const seen2 = new Set(out.map(o => o.sig)); more.forEach(o => { if (!seen2.has(o.sig)) out.push(o); }); }
-    return out.slice(0, 6).map(o => { delete o.sig; return o; });
+  // opt.exclude: Kennungen schon gezeigter Vorschläge – dann kommen die nächstbesten Varianten
+  function generate(base, wishIn, opt = {}) {
+    const wish = parseWish(wishIn || {}), ex = new Set(opt.exclude || []);
+    let out = run(base, wish, ex);
+    if (out.length < 2 && !wish.barrierefrei) { const more = run(base, { ...wish, small: true }, ex); const seen2 = new Set(out.map(o => o.sig)); more.forEach(o => { if (!seen2.has(o.sig)) out.push(o); }); }
+    return out.slice(0, 6);
   }
-  function run(base, wish) {
+  const sigOf = ctx => ctx.items.filter(i => ['wc', 'wt', 'wa', 'fw', 'tw', 'du'].includes(i.type)).map(i => i.type + (i.host || i.wall) + Math.round((i.t || 0) * 5) + (i.a ? i.a.join() + i.b.join() : '')).sort().join('|');
+  function run(base, wish, ex) {
     const start = makeCtx({ pts: base.pts, items: (base.items || []).filter(i => i.type === 'tu' || i.type === 'fe' || (i.type === 'fw' && !i.ki)) });
     refresh(start);
     const W = walls(base.pts), results = {};
-    const keep = (key, r) => { if (r && (!results[key] || r.e.score < results[key].e.score)) results[key] = r; };
+    const keep = (key, r) => { if (!r) return; r.sig = sigOf(r.ctx); if (ex && ex.has(r.sig)) return; const L0 = results[key] || (results[key] = []);
+      if (L0.some(x => x.sig === r.sig)) return; L0.push(r); L0.sort((a, b) => a.e.score - b.e.score); if (L0.length > 4) L0.pop(); };
     const wantShower = wish.dusche;
     // Ecke / klassisch
     keep('ecke', finish(start, wish));
@@ -374,10 +377,10 @@
       }
     }));
     // Ergebnisse aufbereiten, das Beste zuerst
-    const sigs = new Set();
-    return Object.entries(results).map(([k, r]) => ({ k, r })).sort((a, b) => a.r.e.score - b.r.e.score).filter(({ r }) => {
-      const sig = r.ctx.items.filter(i => ['wc', 'wt', 'wa', 'fw', 'tw'].includes(i.type)).map(i => i.type + (i.host || i.wall) + Math.round((i.t || 0) * 5) + (i.a ? i.a.join() + i.b.join() : '')).sort().join('|');
-      r.sig = sig; if (sigs.has(sig)) return false; sigs.add(sig); return true; }).map(({ k, r }) => {
+    // je Konzept die beste noch nicht gezeigte Variante; gleiche Anordnungen nur einmal
+    const sigs = new Set(), core = r => r.ctx.items.filter(i => ['wc', 'wt', 'wa', 'fw', 'tw'].includes(i.type)).map(i => i.type + (i.host || i.wall) + Math.round((i.t || 0) * 5) + (i.a ? i.a.join() + i.b.join() : '')).sort().join('|');
+    return Object.entries(results).map(([k, L0]) => ({ k, r: L0[0] })).filter(x => x.r).sort((a, b) => a.r.e.score - b.r.e.score).filter(({ r }) => {
+      const c0 = core(r); if (sigs.has(c0)) return false; sigs.add(c0); return true; }).map(({ k, r }) => {
       const C = CONCEPTS[k], items = r.ctx.items.map(it => { const o = {}; Object.keys(it).forEach(x => { if (x[0] !== '_') o[x] = it[x]; }); return o; });
       return { sig: r.sig, name: C.titel + (wish.small ? ' (kompakt)' : ''), konzept: C.konzept, note: C.text, trend: C.trend, pros: r.e.pros.slice(0, 5), hinweise: r.e.cons.slice(0, 3), score: Math.round(r.e.score * 10) / 10, plan: { items, nid: r.ctx.nid } };
     });
